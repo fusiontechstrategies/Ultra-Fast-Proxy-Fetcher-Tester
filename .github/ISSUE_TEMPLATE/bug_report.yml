@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a reproducible defect without sharing live proxy endpoints.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, live proxy endpoints, private URLs, or sensitive logs.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: 2.0.0 or a commit SHA
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system and Python version
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Include the sanitized command, exit code, and minimal steps.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Sanitize all third-party endpoint and source details.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed credentials, live proxy endpoints, personal data, and sensitive URLs.
+          required: true
+        - label: This is not a security vulnerability report.
+          required: true
