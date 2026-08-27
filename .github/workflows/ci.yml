@@ -78,3 +78,6 @@ jobs:
 
       - name: Audit runtime dependencies
         run: python -m pip_audit -r requirements.txt
+
+      - name: Audit development dependencies
+        run: python -m pip_audit -r requirements-dev.txt
