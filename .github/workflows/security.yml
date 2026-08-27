@@ -18,4 +18,5 @@ jobs:
     permissions:
       contents: read
       security-events: write
+    # Both external revisions used by the shared workflow are explicitly allowlisted.
     uses: fusiontechstrategies/FusionTechStrategies/.github/workflows/reusable-security.yml@f64c8eb98fa6c907e013d158089ea6ab38e91ad7
