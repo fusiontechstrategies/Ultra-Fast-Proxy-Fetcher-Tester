@@ -325,6 +325,13 @@ class AsyncSecurityTests(unittest.IsolatedAsyncioTestCase):
 
 
 class CliTests(unittest.TestCase):
+    def test_version_identity_is_stable_when_the_script_is_renamed(self) -> None:
+        parser = app.build_parser()
+        with patch("sys.stdout") as stdout, self.assertRaises(SystemExit) as exit_context:
+            parser.parse_args(["--version"])
+        self.assertEqual(exit_context.exception.code, 0)
+        stdout.write.assert_called_once_with("Ultra-Fast Proxy Fetcher & Tester 2.0.0\n")
+
     def test_cli_defaults_are_bounded(self) -> None:
         args = app.build_parser().parse_args([])
         self.assertEqual(args.concurrent, app.DEFAULT_CONCURRENCY)

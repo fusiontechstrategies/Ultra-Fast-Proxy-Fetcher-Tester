@@ -5,6 +5,10 @@ __pycache__/
 venv/
 env/
 tmp/
+release-assets/
+release-candidate/
+repeat-release-assets/
+repeat-release-candidate/
 
 .mypy_cache/
 .ruff_cache/

@@ -27,3 +27,24 @@
 - [x] Require pull requests, conversation resolution, linear history, and passing checks.
 - [x] Confirm the license and community profile are detected by GitHub.
 - [x] Make the repository public only after every exposure audit passes.
+
+## Distribution readiness
+
+- [x] Pin direct runtime and development dependencies exactly.
+- [x] Build the standalone runtime, deterministic ZIP, SPDX 2.3 SBOM, SHA-256 checksums, and commit-bound evidence.
+- [x] Require exactly five release assets and reject existing output directories or nonportable archive paths.
+- [x] Prove repeat builds are byte-identical and the standalone runtime is byte-identical to tagged source.
+- [x] Exercise `--version` and `--help` from the exact standalone asset without network access.
+- [x] Add GitHub build-provenance attestations for every release asset.
+- [x] Restrict release automation to a verified tag commit reachable from protected `main`.
+- [x] Allow the tag workflow to create only a non-prerelease draft.
+- [x] Keep live proxy endpoints and generated results out of every asset.
+
+## Publication gate
+
+- [ ] Obtain explicit authorization for the exact `v2.0.0` tag and target commit.
+- [ ] Inspect the generated draft, download all five assets, and verify every digest and attestation.
+- [ ] Recheck the complete ZIP allowlist, metadata, source bytes, SBOM dependencies, and release evidence.
+- [ ] Rerun offline checks and a fresh, small, rate-limited live validation from the downloaded source.
+- [ ] Confirm zero open code-scanning, Dependabot, or secret-scanning alerts.
+- [ ] Publish the reviewed draft, then verify the public downloads without replacing any asset.
