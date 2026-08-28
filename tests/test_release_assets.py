@@ -48,6 +48,13 @@ class ReleaseAssetTests(unittest.TestCase):
                     [member.filename for member in members],
                     sorted(member.filename for member in members),
                 )
+                relative_names = {member.filename.split("/", maxsplit=1)[1] for member in members}
+                self.assertTrue(
+                    {
+                        ".github/release-notes/v2.0.0.md",
+                        ".github/workflows/release.yml",
+                    }.issubset(relative_names)
+                )
                 self.assertTrue(
                     all(member.compress_type == zipfile.ZIP_STORED for member in members)
                 )

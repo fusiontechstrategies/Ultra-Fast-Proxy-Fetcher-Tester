@@ -36,6 +36,8 @@ WINDOWS_RESERVED_NAMES = {
 }
 
 PACKAGE_FILES = (
+    ".github/release-notes/v2.0.0.md",
+    ".github/workflows/release.yml",
     ".editorconfig",
     ".gitattributes",
     ".gitignore",
