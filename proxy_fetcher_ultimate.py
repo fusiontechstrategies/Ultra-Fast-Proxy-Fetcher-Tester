@@ -932,7 +932,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="hide live progress while retaining the final summary",
     )
-    parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"Ultra-Fast Proxy Fetcher & Tester {VERSION}",
+    )
     return parser
 
 

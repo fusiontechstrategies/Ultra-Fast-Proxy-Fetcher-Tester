@@ -54,7 +54,37 @@ jobs:
         run: python -m mypy proxy_fetcher_ultimate.py
 
       - name: Security lint
-        run: python -m bandit -q -r proxy_fetcher_ultimate.py
+        run: python -m bandit -q -r proxy_fetcher_ultimate.py scripts
+
+  platform-test:
+    name: platform-test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install exact development dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+
+      - name: Verify dependency installation
+        run: python -m pip check
+
+      - name: Run offline tests
+        run: python -m unittest discover -s tests -v
 
   dependency-audit:
     name: dependency-audit
@@ -81,3 +111,70 @@ jobs:
 
       - name: Audit development dependencies
         run: python -m pip_audit -r requirements-dev.txt
+
+  release-artifact:
+    name: Release artifact Python 3.12
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install exact runtime dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Resolve reproducible build epoch
+        id: build-epoch
+        shell: bash
+        run: echo "value=$(git show -s --format=%ct HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build exact candidate twice
+        env:
+          SOURCE_DATE_EPOCH: ${{ steps.build-epoch.outputs.value }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/prepare_release.py \
+            --version 2.0.0 \
+            --tag v2.0.0 \
+            --source-commit "$GITHUB_SHA" \
+            --source-date-epoch "$SOURCE_DATE_EPOCH" \
+            --output-directory release-candidate
+          python scripts/prepare_release.py \
+            --version 2.0.0 \
+            --tag v2.0.0 \
+            --source-commit "$GITHUB_SHA" \
+            --source-date-epoch "$SOURCE_DATE_EPOCH" \
+            --output-directory repeat-release-candidate
+          test "$(find release-candidate -maxdepth 1 -type f -printf '%f\n' | sort)" = \
+            "$(find repeat-release-candidate -maxdepth 1 -type f -printf '%f\n' | sort)"
+          for artifact in release-candidate/*; do
+            cmp --silent "$artifact" "repeat-release-candidate/${artifact##*/}"
+          done
+          test "$(find release-candidate -maxdepth 1 -type f | wc -l)" -eq 5
+
+      - name: Exercise the exact standalone runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(python release-candidate/Ultra-Fast-Proxy-Fetcher-Tester-v2.0.0.py --version)" = \
+            "Ultra-Fast Proxy Fetcher & Tester 2.0.0"
+          python release-candidate/Ultra-Fast-Proxy-Fetcher-Tester-v2.0.0.py --help >/dev/null
+
+      - name: Preserve the exact release candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: proxy-fetcher-v2.0.0-candidate-${{ github.sha }}
+          path: release-candidate/
+          if-no-files-found: error
+          retention-days: 30

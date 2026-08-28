@@ -84,6 +84,12 @@ Show every option and its enforced bounds:
 python proxy_fetcher_ultimate.py --help
 ```
 
+Show the stable product version:
+
+```bash
+python proxy_fetcher_ultimate.py --version
+```
+
 ### Important defaults
 
 | Setting | Default | Enforced maximum |
@@ -131,6 +137,20 @@ Generated proxy files are excluded by `.gitignore`. Treat them as transient oper
 
 Read [SECURITY.md](SECURITY.md) for vulnerability reporting and [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md) before operating the tool.
 
+## Release integrity
+
+The `v2.0.0` release process is designed to contain exactly five files:
+
+1. an exact standalone copy of `proxy_fetcher_ultimate.py`
+2. a deterministic source and documentation ZIP
+3. an SPDX 2.3 direct-dependency SBOM
+4. `SHA256SUMS.txt`
+5. commit-bound `release-evidence.json`
+
+The builder uses a fixed file allowlist, canonical ZIP order, timestamps, permissions, and metadata. It rejects mismatched versions, tags, dependencies, source files, commits, or output sets. GitHub Actions builds the assets twice, compares every byte, exercises the exact standalone runtime without network access, and attests every asset before creating a draft. The workflow cannot publish the draft and does not publish to a package registry.
+
+See [RELEASING.md](RELEASING.md) for the exact contract and [TESTING.md](TESTING.md) for offline, live, and release validation boundaries.
+
 ## Development
 
 Install the development checks:
@@ -149,6 +169,7 @@ python -m unittest discover -s tests -v
 python -m mypy proxy_fetcher_ultimate.py
 python -m bandit -q -r proxy_fetcher_ultimate.py
 python -m pip_audit -r requirements.txt
+python -m pip_audit -r requirements-dev.txt
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for source-review and pull-request requirements.

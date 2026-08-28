@@ -1,3 +1,5 @@
+# Pull request
+
 ## Summary
 
 Describe the change and why it is needed.
@@ -14,4 +16,5 @@ Describe the change and why it is needed.
 - [ ] Ruff linting and formatting pass.
 - [ ] mypy and Bandit pass.
 - [ ] Dependency checks pass.
+- [ ] Release-asset checks pass when distribution files change.
 - [ ] Documentation reflects user-visible changes.

@@ -28,6 +28,14 @@ All notable changes to this project are documented here.
 - Fetch-only validation mode, protocol filtering, source concurrency controls, candidate limits, and configurable timeouts.
 - Offline tests covering filtering, parsing, source safety, response limits, exact validation semantics, bounded concurrency, output integrity, and command-line bounds.
 - GitHub Actions, dependency auditing, static analysis, typing, security linting, Dependabot, issue templates, contribution guidance, support guidance, and responsible-use documentation.
+- Deterministic standalone, source ZIP, SPDX 2.3 SBOM, SHA-256 checksum, and commit-bound release-evidence construction.
+- Tag-only automation that verifies a protected-main commit, attests the exact assets, and creates only a draft GitHub release.
+
+### Distribution
+
+- Pin the two direct runtime dependencies exactly for repeatable installation and SBOM identity.
+- Build the same exact five assets twice and reject any filename or byte difference.
+- Keep release publication, replacement, package-registry publication, and live proxy data outside the automated release path.
 
 ### Removed
 
