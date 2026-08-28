@@ -161,6 +161,18 @@ class ReleaseAssetTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(prepare_release.ReleaseError):
                 prepare_release.validate_package_payloads({"synthetic.txt": value})
 
+    def test_tag_workflow_exercises_exact_runtime_identity(self):
+        workflow = (PROJECT_ROOT / ".github" / "workflows" / "release.yml").read_text(
+            encoding="utf-8"
+        )
+        lines = workflow.splitlines()
+        version_checks = [index for index, line in enumerate(lines) if '--version)" =' in line]
+        self.assertEqual(len(version_checks), 1)
+        self.assertEqual(
+            lines[version_checks[0] + 1].strip(),
+            '"Ultra-Fast Proxy Fetcher & Tester $RELEASE_VERSION"',
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
