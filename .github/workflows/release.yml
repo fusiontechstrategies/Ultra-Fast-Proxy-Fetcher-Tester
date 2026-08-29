@@ -100,7 +100,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(python "release-assets/Ultra-Fast-Proxy-Fetcher-Tester-v$RELEASE_VERSION.py" --version)" = \
-            "Ultra-Fast Proxy Fetcher and Tester $RELEASE_VERSION"
+            "Ultra-Fast Proxy Fetcher & Tester $RELEASE_VERSION"
           python "release-assets/Ultra-Fast-Proxy-Fetcher-Tester-v$RELEASE_VERSION.py" --help >/dev/null
 
       - name: Preserve the exact release assets

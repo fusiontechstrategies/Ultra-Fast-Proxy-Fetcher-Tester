@@ -48,6 +48,13 @@ class ReleaseAssetTests(unittest.TestCase):
                     [member.filename for member in members],
                     sorted(member.filename for member in members),
                 )
+                relative_names = {member.filename.split("/", maxsplit=1)[1] for member in members}
+                self.assertTrue(
+                    {
+                        ".github/release-notes/v2.0.0.md",
+                        ".github/workflows/release.yml",
+                    }.issubset(relative_names)
+                )
                 self.assertTrue(
                     all(member.compress_type == zipfile.ZIP_STORED for member in members)
                 )
@@ -160,6 +167,18 @@ class ReleaseAssetTests(unittest.TestCase):
         for value in (unsafe_endpoint, private_path, em_dash.encode("utf-8")):
             with self.subTest(value=value), self.assertRaises(prepare_release.ReleaseError):
                 prepare_release.validate_package_payloads({"synthetic.txt": value})
+
+    def test_tag_workflow_exercises_exact_runtime_identity(self):
+        workflow = (PROJECT_ROOT / ".github" / "workflows" / "release.yml").read_text(
+            encoding="utf-8"
+        )
+        lines = workflow.splitlines()
+        version_checks = [index for index, line in enumerate(lines) if '--version)" =' in line]
+        self.assertEqual(len(version_checks), 1)
+        self.assertEqual(
+            lines[version_checks[0] + 1].strip(),
+            '"Ultra-Fast Proxy Fetcher & Tester $RELEASE_VERSION"',
+        )
 
 
 if __name__ == "__main__":
