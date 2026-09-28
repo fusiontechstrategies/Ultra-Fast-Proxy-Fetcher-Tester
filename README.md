@@ -6,6 +6,8 @@
 
 Fetch, validate, rank, and save public HTTP, SOCKS4, and SOCKS5 proxy endpoints with one Python script. The engine uses bounded asynchronous concurrency, strict public-address filtering, and an end-to-end HTTPS connectivity check.
 
+[![Bounded proxy validation pipeline](docs/images/proxy-validation-pipeline.png)](docs/images/source/proxy-validation-pipeline.svg)
+
 This project is intended for authorized network testing, software development, and research. Public proxies are untrusted. Never send credentials, personal information, proprietary data, or other sensitive traffic through an endpoint produced by this tool.
 
 ## Why this version is different
