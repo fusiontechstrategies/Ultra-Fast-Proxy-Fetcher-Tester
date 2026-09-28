@@ -10,6 +10,8 @@ Fetch, validate, rank, and save public HTTP, SOCKS4, and SOCKS5 proxy endpoints 
 
 This project is intended for authorized network testing, software development, and research. Public proxies are untrusted. Never send credentials, personal information, proprietary data, or other sensitive traffic through an endpoint produced by this tool.
 
+Version 2.0.0 is the current verified release. Download the [standalone runtime and integrity files](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/releases/tag/v2.0.0) from the release page.
+
 ## Why this version is different
 
 - Fetches concurrently from 52 curated HTTPS sources validated on 2026-08-12.
