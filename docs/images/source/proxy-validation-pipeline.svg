@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">Proxy fetcher validation pipeline</title>
+  <desc id="desc">A synthetic pipeline showing bounded source retrieval, public-address filtering, protocol and HTTPS checks, measured categorization, and explicit limitations.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#07182b"/><stop offset="1" stop-color="#112d43"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#020817" flood-opacity=".42"/></filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#65d9ff"/></marker>
+  </defs>
+  <rect width="1200" height="760" fill="url(#bg)"/>
+  <circle cx="1095" cy="20" r="220" fill="#1d425e" opacity=".55"/>
+  <text x="70" y="67" fill="#65d9ff" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="3">ULTRA-FAST PROXY FETCHER &amp; TESTER</text>
+  <text x="70" y="120" fill="#fff" font-family="Segoe UI,Arial,sans-serif" font-size="42" font-weight="750">Fast once does not mean trustworthy.</text>
+  <text x="70" y="158" fill="#bdd8e9" font-family="Segoe UI,Arial,sans-serif" font-size="20">A bounded path from hostile feed data to a measured connectivity result</text>
+  <g filter="url(#shadow)" font-family="Segoe UI,Arial,sans-serif">
+    <rect x="70" y="208" width="210" height="210" rx="20" fill="#132f48" stroke="#3e83a7" stroke-width="2"/>
+    <text x="100" y="246" fill="#65d9ff" font-size="14" font-weight="700" letter-spacing="1.2">1  FETCH</text>
+    <text x="100" y="286" fill="#fff" font-size="24" font-weight="700">Bounded sources</text>
+    <text x="100" y="323" fill="#c2dae9" font-size="16">HTTPS only</text>
+    <text x="100" y="351" fill="#c2dae9" font-size="16">TLS and DNS checks</text>
+    <text x="100" y="379" fill="#c2dae9" font-size="16">Size and count caps</text>
+
+    <rect x="355" y="208" width="210" height="210" rx="20" fill="#28313a" stroke="#c39432" stroke-width="2"/>
+    <text x="385" y="246" fill="#ffd36b" font-size="14" font-weight="700" letter-spacing="1.2">2  FILTER</text>
+    <text x="385" y="286" fill="#fff" font-size="24" font-weight="700">Public only</text>
+    <text x="385" y="323" fill="#e8d9b5" font-size="16">Reject private ranges</text>
+    <text x="385" y="351" fill="#e8d9b5" font-size="16">Reject malformed ports</text>
+    <text x="385" y="379" fill="#e8d9b5" font-size="16">Deduplicate endpoints</text>
+
+    <rect x="640" y="208" width="210" height="210" rx="20" fill="#193641" stroke="#43b99b" stroke-width="2"/>
+    <text x="670" y="246" fill="#77edcd" font-size="14" font-weight="700" letter-spacing="1.2">3  VALIDATE</text>
+    <text x="670" y="286" fill="#fff" font-size="24" font-weight="700">End to end</text>
+    <text x="670" y="323" fill="#c5e8de" font-size="16">HTTP, SOCKS4, SOCKS5</text>
+    <text x="670" y="351" fill="#c5e8de" font-size="16">Fixed HTTPS endpoint</text>
+    <text x="670" y="379" fill="#c5e8de" font-size="16">Exact 204 required</text>
+
+    <rect x="925" y="208" width="205" height="210" rx="20" fill="#242840" stroke="#8872cf" stroke-width="2"/>
+    <text x="955" y="246" fill="#b9a7fa" font-size="14" font-weight="700" letter-spacing="1.2">4  REPORT</text>
+    <text x="955" y="286" fill="#fff" font-size="21" font-weight="700">Measured result</text>
+    <text x="955" y="323" fill="#d7cfef" font-size="14">Sort by response time</text>
+    <text x="955" y="351" fill="#d7cfef" font-size="14">Atomic final output</text>
+    <text x="955" y="379" fill="#d7cfef" font-size="14">Explicit exit status</text>
+  </g>
+  <path d="M280 313 H340" stroke="#65d9ff" stroke-width="4" marker-end="url(#arrow)"/><path d="M565 313 H625" stroke="#65d9ff" stroke-width="4" marker-end="url(#arrow)"/><path d="M850 313 H910" stroke="#65d9ff" stroke-width="4" marker-end="url(#arrow)"/>
+  <g filter="url(#shadow)" font-family="Segoe UI,Arial,sans-serif">
+    <rect x="70" y="475" width="1060" height="165" rx="20" fill="#111f32" stroke="#4b7693" stroke-width="2"/>
+    <text x="100" y="511" fill="#65d9ff" font-size="14" font-weight="700" letter-spacing="1.4">SYNTHETIC RESULT</text>
+    <rect x="100" y="536" width="285" height="64" rx="14" fill="#123b34" stroke="#49c6a5"/>
+    <circle cx="128" cy="568" r="8" fill="#58e0b9"/><text x="150" y="565" fill="#fff" font-size="16" font-weight="700">HTTPS check passed</text><text x="150" y="587" fill="#8cefd4" font-size="13">142.18 ms at test time</text>
+    <rect x="430" y="536" width="285" height="64" rx="14" fill="#3a3021" stroke="#d0a13d"/>
+    <circle cx="458" cy="568" r="8" fill="#ffd36b"/><text x="480" y="565" fill="#fff" font-size="16" font-weight="700">Trust remains unknown</text><text x="480" y="587" fill="#e9d9ac" font-size="13">Ownership and uptime unproved</text>
+    <rect x="760" y="536" width="340" height="64" rx="14" fill="#3b2631" stroke="#d85b78"/>
+    <circle cx="788" cy="568" r="8" fill="#ff7c94"/><text x="810" y="565" fill="#fff" font-size="16" font-weight="700">Sensitive traffic stays away</text><text x="810" y="587" fill="#f0bdc8" font-size="13">Public proxies are always untrusted</text>
+  </g>
+  <rect x="70" y="680" width="1060" height="44" rx="14" fill="#0c2032" stroke="#487591"/>
+  <text x="100" y="707" fill="#d4e7f2" font-family="Segoe UI,Arial,sans-serif" font-size="15">A successful test proves one bounded connection at one moment. It does not prove anonymity, safety, location, ownership, or future availability.</text>
+</svg>
