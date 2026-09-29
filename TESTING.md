@@ -50,8 +50,8 @@ These observations are time-specific readiness evidence, not an availability or 
 
 ## Release validation
 
-Build the five assets twice with the exact candidate commit and commit timestamp. Require byte-identical output sets. Inspect every ZIP member and verify the standalone runtime matches source, the SBOM matches exact direct pins, checksums match, and evidence binds every artifact and ZIP member to the source commit.
+Build and normalize the wheel and source archive twice, then build the seven release assets twice with the exact candidate commit and commit timestamp. Require byte-identical output sets. Inspect every ZIP member and verify the standalone and wheel runtime match source, the SBOM matches exact direct pins, checksums match, and evidence binds every artifact and ZIP member to the source commit.
 
-Run `--version` and `--help` from the exact standalone asset without starting any fetch. Hosted CI performs the same release construction on Linux. An independent Windows build must match all five files byte for byte before the tag is approved.
+Run `--version` and `--help` from the exact standalone asset without starting any fetch. Hosted CI performs the same release construction on Linux. An independent Windows build must match all seven files byte for byte before the tag is approved.
 
 The tag workflow creates only a draft. Downloaded draft and public assets require a new verification pass as described in [RELEASING.md](RELEASING.md).

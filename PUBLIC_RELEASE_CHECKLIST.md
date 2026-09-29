@@ -42,8 +42,8 @@
 
 ## Publication gate
 
-- [ ] Obtain explicit authorization for the exact `v2.0.0` tag and target commit.
-- [ ] Inspect the generated draft, download all five assets, and verify every digest and attestation.
+- [ ] Obtain explicit authorization for the exact `v2.0.1` tag and target commit.
+- [ ] Inspect the generated draft, download all seven assets, and verify every digest and attestation.
 - [ ] Recheck the complete ZIP allowlist, metadata, source bytes, SBOM dependencies, and release evidence.
 - [ ] Rerun offline checks and a fresh, small, rate-limited live validation from the downloaded source.
 - [ ] Confirm zero open code-scanning, Dependabot, or secret-scanning alerts.

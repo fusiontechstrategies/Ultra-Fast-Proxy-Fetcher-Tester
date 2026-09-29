@@ -330,7 +330,7 @@ class CliTests(unittest.TestCase):
         with patch("sys.stdout") as stdout, self.assertRaises(SystemExit) as exit_context:
             parser.parse_args(["--version"])
         self.assertEqual(exit_context.exception.code, 0)
-        stdout.write.assert_called_once_with("Ultra-Fast Proxy Fetcher & Tester 2.0.0\n")
+        stdout.write.assert_called_once_with("Ultra-Fast Proxy Fetcher & Tester 2.0.1\n")
 
     def test_cli_defaults_are_bounded(self) -> None:
         args = app.build_parser().parse_args([])

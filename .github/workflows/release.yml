@@ -66,6 +66,9 @@ jobs:
       - name: Install exact runtime dependencies
         run: python -m pip install --disable-pip-version-check -r requirements.txt
 
+      - name: Install pinned build tools
+        run: python -m pip install --disable-pip-version-check -r requirements-build.txt
+
       - name: Build exact release assets twice
         env:
           RELEASE_COMMIT: ${{ steps.identity.outputs.commit }}
@@ -74,24 +77,35 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python -m build --no-isolation --wheel --sdist --outdir package-dist
+          python scripts/normalize_wheel.py --source-date-epoch "$SOURCE_DATE_EPOCH" package-dist/*.whl
+          python scripts/normalize_sdist.py --source-date-epoch "$SOURCE_DATE_EPOCH" package-dist/*.tar.gz
+          python scripts/verify_distribution.py package-dist --version "$RELEASE_VERSION"
+          python -m twine check package-dist/*
+          python -m build --no-isolation --wheel --sdist --outdir package-repeat
+          python scripts/normalize_wheel.py --source-date-epoch "$SOURCE_DATE_EPOCH" package-repeat/*.whl
+          python scripts/normalize_sdist.py --source-date-epoch "$SOURCE_DATE_EPOCH" package-repeat/*.tar.gz
+          diff --recursive --brief package-dist package-repeat
           python scripts/prepare_release.py \
             --version "$RELEASE_VERSION" \
             --tag "$GITHUB_REF_NAME" \
             --source-commit "$RELEASE_COMMIT" \
             --source-date-epoch "$SOURCE_DATE_EPOCH" \
+            --dist-dir package-dist \
             --output-directory release-assets
           python scripts/prepare_release.py \
             --version "$RELEASE_VERSION" \
             --tag "$GITHUB_REF_NAME" \
             --source-commit "$RELEASE_COMMIT" \
             --source-date-epoch "$SOURCE_DATE_EPOCH" \
+            --dist-dir package-repeat \
             --output-directory repeat-release-assets
           test "$(find release-assets -maxdepth 1 -type f -printf '%f\n' | sort)" = \
             "$(find repeat-release-assets -maxdepth 1 -type f -printf '%f\n' | sort)"
           for artifact in release-assets/*; do
             cmp --silent "$artifact" "repeat-release-assets/${artifact##*/}"
           done
-          test "$(find release-assets -maxdepth 1 -type f | wc -l)" -eq 5
+          test "$(find release-assets -maxdepth 1 -type f | wc -l)" -eq 7
 
       - name: Exercise the exact standalone runtime
         env:
@@ -168,6 +182,8 @@ jobs:
             --notes-file ".github/release-notes/$GITHUB_REF_NAME.md" \
             "release-assets/Ultra-Fast-Proxy-Fetcher-Tester-v$RELEASE_VERSION.py" \
             "release-assets/Ultra-Fast-Proxy-Fetcher-Tester-v$RELEASE_VERSION.zip" \
+            "release-assets/ultra_fast_proxy_fetcher_tester-$RELEASE_VERSION-py3-none-any.whl" \
+            "release-assets/ultra_fast_proxy_fetcher_tester-$RELEASE_VERSION.tar.gz" \
             "release-assets/Ultra-Fast-Proxy-Fetcher-Tester-v$RELEASE_VERSION.spdx.json" \
             "release-assets/SHA256SUMS.txt" \
             "release-assets/release-evidence.json"
@@ -191,6 +207,8 @@ jobs:
           expected = {
               f"Ultra-Fast-Proxy-Fetcher-Tester-v{version}.py",
               f"Ultra-Fast-Proxy-Fetcher-Tester-v{version}.zip",
+              f"ultra_fast_proxy_fetcher_tester-{version}-py3-none-any.whl",
+              f"ultra_fast_proxy_fetcher_tester-{version}.tar.gz",
               f"Ultra-Fast-Proxy-Fetcher-Tester-v{version}.spdx.json",
               "SHA256SUMS.txt",
               "release-evidence.json",

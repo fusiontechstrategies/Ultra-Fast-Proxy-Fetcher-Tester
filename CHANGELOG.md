@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## [2.0.1] - 2026-09-29
+
+### Distribution
+
+- Add reproducible, reviewed wheel and source archives to the GitHub release asset set.
+- Verify distribution identity, runtime bytes, dependencies, entry point, checksums, and provenance before publishing.
+- Remove the Beta classifier from the new package metadata.
+
 ## [2.0.0] - 2026-08-12
 
 ### Security
