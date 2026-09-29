@@ -31,6 +31,15 @@ Version 2.0.1 is the current verified release. Download the [standalone runtime,
 
 ## Installation
 
+Install the [PyPI 2.0.1 package](https://pypi.org/project/ultra-fast-proxy-fetcher-tester/2.0.1/) for the `proxy-fetcher-tester` command:
+
+```bash
+python -m pip install ultra-fast-proxy-fetcher-tester==2.0.1
+proxy-fetcher-tester --help
+```
+
+To work from the standalone source, clone the repository:
+
 ```bash
 git clone https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester.git
 cd Ultra-Fast-Proxy-Fetcher-Tester
