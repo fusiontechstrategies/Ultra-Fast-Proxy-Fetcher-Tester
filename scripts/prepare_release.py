@@ -15,6 +15,11 @@ import unicodedata
 import zipfile
 from pathlib import Path, PurePosixPath
 
+if __package__:
+    from .verify_distribution import verify_distribution
+else:
+    from verify_distribution import verify_distribution
+
 PROJECT_NAME = "Ultra-Fast Proxy Fetcher and Tester"
 PROJECT_SLUG = "Ultra-Fast-Proxy-Fetcher-Tester"
 REPOSITORY_URL = "https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester"
@@ -36,7 +41,7 @@ WINDOWS_RESERVED_NAMES = {
 }
 
 PACKAGE_FILES = (
-    ".github/release-notes/v2.0.0.md",
+    ".github/release-notes/v2.0.1.md",
     ".github/workflows/release.yml",
     ".editorconfig",
     ".gitattributes",
@@ -55,8 +60,12 @@ PACKAGE_FILES = (
     "proxy_fetcher_ultimate.py",
     "pyproject.toml",
     "requirements-dev.txt",
+    "requirements-build.txt",
     "requirements.txt",
+    "scripts/normalize_sdist.py",
+    "scripts/normalize_wheel.py",
     "scripts/prepare_release.py",
+    "scripts/verify_distribution.py",
     "tests/test_proxy_fetcher.py",
     "tests/test_release_assets.py",
 )
@@ -381,6 +390,8 @@ def expected_asset_names(version: str) -> tuple[str, ...]:
     return (
         f"{stem}.py",
         f"{stem}.zip",
+        f"ultra_fast_proxy_fetcher_tester-{version}-py3-none-any.whl",
+        f"ultra_fast_proxy_fetcher_tester-{version}.tar.gz",
         f"{stem}.spdx.json",
         "SHA256SUMS.txt",
         "release-evidence.json",
@@ -397,6 +408,7 @@ def write_exclusive(path: Path, value: bytes) -> None:
 
 def prepare_release(
     project_root: Path,
+    dist_dir: Path,
     output_directory: Path,
     version: str,
     tag: str,
@@ -404,6 +416,7 @@ def prepare_release(
     source_date_epoch: int,
 ) -> tuple[Path, ...]:
     project_root = project_root.resolve(strict=True)
+    dist_dir = dist_dir.resolve(strict=True)
     output_directory = output_directory.resolve(strict=False)
     require(STABLE_VERSION.fullmatch(version) is not None, "Release version must be stable X.Y.Z")
     require(tag == f"v{version}", f"Release tag {tag!r} does not match v{version}")
@@ -425,6 +438,11 @@ def prepare_release(
     )
     require(not output_directory.exists(), "Release output directory already exists")
     require(output_directory.parent.is_dir(), "Release output parent does not exist")
+    require(
+        all(path.is_file() and not path.is_symlink() for path in dist_dir.iterdir()),
+        "Distribution input must contain only regular files",
+    )
+    verify_distribution(dist_dir, project_root, version)
 
     files = validate_package_files(project_root)
     dependencies = parse_runtime_dependencies(project_root)
@@ -433,19 +451,23 @@ def prepare_release(
     output_directory.mkdir()
     runtime_asset = output_directory / asset_names[0]
     zip_asset = output_directory / asset_names[1]
-    spdx_asset = output_directory / asset_names[2]
-    checksums_asset = output_directory / asset_names[3]
-    evidence_asset = output_directory / asset_names[4]
+    wheel_asset = output_directory / asset_names[2]
+    sdist_asset = output_directory / asset_names[3]
+    spdx_asset = output_directory / asset_names[4]
+    checksums_asset = output_directory / asset_names[5]
+    evidence_asset = output_directory / asset_names[6]
 
     write_exclusive(runtime_asset, runtime_value)
     build_zip(zip_asset, version, files, source_date_epoch)
     zip_members = inspect_zip(zip_asset, version, files, source_date_epoch)
+    write_exclusive(wheel_asset, (dist_dir / wheel_asset.name).read_bytes())
+    write_exclusive(sdist_asset, (dist_dir / sdist_asset.name).read_bytes())
     write_exclusive(
         spdx_asset,
         build_spdx(version, release_date, sha256_bytes(runtime_value), dependencies),
     )
 
-    primary_assets = (runtime_asset, zip_asset, spdx_asset)
+    primary_assets = (runtime_asset, zip_asset, wheel_asset, sdist_asset, spdx_asset)
     checksum_lines = [f"{sha256_file(path)}  {path.name}" for path in primary_assets]
     write_exclusive(checksums_asset, ("\n".join(checksum_lines) + "\n").encode("ascii"))
 
@@ -490,6 +512,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tag", required=True)
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--source-date-epoch", required=True, type=int)
+    parser.add_argument("--dist-dir", type=Path, required=True)
     parser.add_argument("--output-directory", type=Path, required=True)
     return parser
 
@@ -500,6 +523,7 @@ def main() -> int:
     try:
         outputs = prepare_release(
             project_root,
+            arguments.dist_dir,
             arguments.output_directory,
             arguments.version,
             arguments.tag,

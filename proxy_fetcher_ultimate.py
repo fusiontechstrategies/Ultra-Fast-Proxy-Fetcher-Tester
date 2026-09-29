@@ -32,7 +32,7 @@ from aiohttp.abc import AbstractResolver, ResolveResult
 from aiohttp.resolver import DefaultResolver
 from aiohttp_socks import ProxyConnector
 
-VERSION = "2.0.0"
+VERSION = "2.0.1"
 REPOSITORY_URL = "https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester"
 TEST_URL = "https://www.gstatic.com/generate_204"
 EXPECTED_TEST_STATUS = 204

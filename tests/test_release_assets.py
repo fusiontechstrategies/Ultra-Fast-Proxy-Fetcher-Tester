@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import stat
+import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -11,17 +14,60 @@ from pathlib import Path
 from scripts import prepare_release
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-VERSION = "2.0.0"
+VERSION = "2.0.1"
 TAG = f"v{VERSION}"
 SOURCE_COMMIT = "a" * 40
 SOURCE_DATE_EPOCH = 315532800
 
 
 class ReleaseAssetTests(unittest.TestCase):
-    @staticmethod
-    def prepare(parent: Path, name: str) -> tuple[Path, ...]:
+    @classmethod
+    def setUpClass(cls):
+        cls._temporary = tempfile.TemporaryDirectory()
+        cls.DIST_DIR = Path(cls._temporary.name) / "dist"
+        environment = {**os.environ, "SOURCE_DATE_EPOCH": str(SOURCE_DATE_EPOCH)}
+        subprocess.run(  # noqa: S603 - fixed local build command and controlled output directory
+            [
+                sys.executable,
+                "-m",
+                "build",
+                "--no-isolation",
+                "--wheel",
+                "--sdist",
+                "--outdir",
+                str(cls.DIST_DIR),
+            ],
+            cwd=PROJECT_ROOT,
+            env=environment,
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+        for script, pattern in (
+            ("normalize_wheel.py", "*.whl"),
+            ("normalize_sdist.py", "*.tar.gz"),
+        ):
+            subprocess.run(  # noqa: S603 - fixed local normalizer script and test archive
+                [
+                    sys.executable,
+                    str(PROJECT_ROOT / "scripts" / script),
+                    "--source-date-epoch",
+                    str(SOURCE_DATE_EPOCH),
+                    str(next(cls.DIST_DIR.glob(pattern))),
+                ],
+                cwd=PROJECT_ROOT,
+                check=True,
+                stdout=subprocess.DEVNULL,
+            )
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._temporary.cleanup()
+
+    @classmethod
+    def prepare(cls, parent: Path, name: str) -> tuple[Path, ...]:
         return prepare_release.prepare_release(
             PROJECT_ROOT,
+            cls.DIST_DIR,
             parent / name,
             VERSION,
             TAG,
@@ -51,7 +97,7 @@ class ReleaseAssetTests(unittest.TestCase):
                 relative_names = {member.filename.split("/", maxsplit=1)[1] for member in members}
                 self.assertTrue(
                     {
-                        ".github/release-notes/v2.0.0.md",
+                        ".github/release-notes/v2.0.1.md",
                         ".github/workflows/release.yml",
                     }.issubset(relative_names)
                 )
@@ -75,7 +121,7 @@ class ReleaseAssetTests(unittest.TestCase):
             )
 
             checksum_lines = by_name["SHA256SUMS.txt"].read_text(encoding="ascii").splitlines()
-            self.assertEqual(len(checksum_lines), 3)
+            self.assertEqual(len(checksum_lines), 5)
             for line in checksum_lines:
                 digest, name = line.split("  ", maxsplit=1)
                 self.assertEqual(hashlib.sha256(by_name[name].read_bytes()).hexdigest(), digest)
@@ -132,8 +178,9 @@ class ReleaseAssetTests(unittest.TestCase):
             with self.assertRaises(prepare_release.ReleaseError):
                 prepare_release.prepare_release(
                     PROJECT_ROOT,
+                    self.DIST_DIR,
                     root / "bad-version",
-                    "2.0.1",
+                    "2.0.2",
                     TAG,
                     SOURCE_COMMIT,
                     SOURCE_DATE_EPOCH,
@@ -141,6 +188,7 @@ class ReleaseAssetTests(unittest.TestCase):
             with self.assertRaisesRegex(prepare_release.ReleaseError, "range"):
                 prepare_release.prepare_release(
                     PROJECT_ROOT,
+                    self.DIST_DIR,
                     root / "bad-epoch",
                     VERSION,
                     TAG,
