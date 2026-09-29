@@ -92,4 +92,4 @@ Publish only after every check passes. Then repeat the public download, digest, 
 
 ## Registry publication remains separate
 
-This repository has no PyPI or other registry publication workflow. PyPI publication requires a trusted publisher, protected environment, and clean-install review. Never add a long-lived registry token merely to simplify publication.
+The separate manual `publish.yml` workflow verifies the public release, its exact asset set, checksums, package contents, evidence, and GitHub provenance before passing only the wheel and source archive to the protected `pypi` environment. Publication requires a registered PyPI trusted publisher, environment approval, and clean-install review. Never add a long-lived registry token merely to simplify publication.

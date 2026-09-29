@@ -42,9 +42,9 @@
 
 ## Publication gate
 
-- [ ] Obtain explicit authorization for the exact `v2.0.1` tag and target commit.
-- [ ] Inspect the generated draft, download all seven assets, and verify every digest and attestation.
-- [ ] Recheck the complete ZIP allowlist, metadata, source bytes, SBOM dependencies, and release evidence.
-- [ ] Rerun offline checks and a fresh, small, rate-limited live validation from the downloaded source.
-- [ ] Confirm zero open code-scanning, Dependabot, or secret-scanning alerts.
-- [ ] Publish the reviewed draft, then verify the public downloads without replacing any asset.
+- [x] Use the verified `v2.0.1` tag at protected-main commit `7a2e554a53bae43990b2478a72ce6b6c2169adc7`.
+- [x] Inspect the generated draft, download all seven assets, and verify every digest and attestation.
+- [x] Recheck the complete ZIP allowlist, metadata, source bytes, SBOM dependencies, and release evidence.
+- [x] Rerun offline checks and a fresh, small, rate-limited live validation. The 25-candidate smoke test had zero working proxies; the bounded failure path completed.
+- [x] Confirm zero open code-scanning, Dependabot, or secret-scanning alerts.
+- [x] Publish the reviewed draft, then verify the public downloads without replacing any asset.

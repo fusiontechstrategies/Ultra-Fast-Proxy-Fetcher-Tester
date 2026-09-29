@@ -48,6 +48,14 @@ The release-readiness tree completed a fresh bounded live check from an authoriz
 
 These observations are time-specific readiness evidence, not an availability or performance promise.
 
+### 2026-09-29 version 2.0.1 record
+
+- fetch-only: 52 of 52 configured HTTPS feeds usable; 53,875 unique candidates parsed, with 26 non-public or malformed entries rejected; no endpoint tested or saved
+- fixed-target smoke test: 25 HTTP candidates, five workers, six-second timeout; 0 of 25 passed the exact HTTPS `204` check
+- the zero-result output was removed after recording aggregate counts only
+
+This is a time-specific result. It verifies the bounded failure path without claiming current working proxies.
+
 ## Release validation
 
 Build and normalize the wheel and source archive twice, then build the seven release assets twice with the exact candidate commit and commit timestamp. Require byte-identical output sets. Inspect every ZIP member and verify the standalone and wheel runtime match source, the SBOM matches exact direct pins, checksums match, and evidence binds every artifact and ZIP member to the source commit.
