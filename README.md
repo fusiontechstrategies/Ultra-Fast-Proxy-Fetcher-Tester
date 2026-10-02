@@ -141,6 +141,17 @@ Generated proxy files are excluded by `.gitignore`. Treat them as transient oper
 
 ## Security model and limitations
 
+Address filtering uses a fixed conservative policy across Python 3.10 through
+3.14. It rejects every special-purpose block in the
+[IANA IPv4 registry](https://www.iana.org/assignments/iana-ipv4-special-registry/)
+and [IANA IPv6 registry](https://www.iana.org/assignments/iana-ipv6-special-registry/)
+snapshot reviewed on October 2, 2026, including globally reachable protocol
+anycast exceptions. IPv6 permits ordinary addresses in `2000::/3` and excludes
+special allocations inside that space. Translation, transition, documentation,
+benchmarking, private, link-local and reserved destinations stay blocked even
+when an older Python patch classifies them differently. This intentionally
+trades some special-purpose reachability for a narrower public-proxy boundary.
+
 - The fixed HTTPS `204` check validates connectivity and TLS tunneling. It does not prove anonymity, trustworthiness, geographic location, uptime, or ownership.
 - A proxy can become malicious or unavailable immediately after a successful test.
 - Third-party source availability and content can change without notice.
@@ -151,6 +162,14 @@ Generated proxy files are excluded by `.gitignore`. Treat them as transient oper
 Read [SECURITY.md](SECURITY.md) for vulnerability reporting and [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md) before operating the tool.
 
 ## Release integrity
+
+Installable distributions bind the description, author, project URLs,
+classifiers, README content and wheel generator to reviewed source. Source
+archives reject unreviewed empty directories and nonportable paths. After
+environment approval, PyPI promotion rechecks the original tag and signed
+commit, main ancestry, and the same public stable release before publication.
+Python 3.10 development checks install a pinned `tomli` compatibility parser;
+release jobs use Python 3.12's standard-library TOML parser in isolated mode.
 
 The `v2.0.1` release process is designed to contain exactly seven files:
 

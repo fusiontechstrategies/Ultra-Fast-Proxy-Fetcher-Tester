@@ -396,16 +396,49 @@ SPEED_CATEGORIES: tuple[tuple[float, str], ...] = (
 )
 
 
+SPECIAL_IPV4_NETWORKS = tuple(
+    ipaddress.IPv4Network(prefix)
+    for prefix in (
+        "0.0.0.0/8",
+        "10.0.0.0/8",
+        "100.64.0.0/10",
+        "127.0.0.0/8",
+        "169.254.0.0/16",
+        "172.16.0.0/12",
+        "192.0.0.0/24",
+        "192.0.2.0/24",
+        "192.31.196.0/24",
+        "192.52.193.0/24",
+        "192.88.99.0/24",
+        "192.168.0.0/16",
+        "192.175.48.0/24",
+        "198.18.0.0/15",
+        "198.51.100.0/24",
+        "203.0.113.0/24",
+        "224.0.0.0/4",
+        "240.0.0.0/4",
+    )
+)
+SPECIAL_IPV6_NETWORKS = tuple(
+    ipaddress.IPv6Network(prefix)
+    for prefix in ("2001::/23", "2001:db8::/32", "2002::/16", "2620:4f:8000::/48", "3fff::/20")
+)
+PUBLIC_IPV6_SPACE = ipaddress.IPv6Network("2000::/3")
+
+
 def is_global_unicast(
     address: ipaddress.IPv4Address | ipaddress.IPv6Address,
 ) -> bool:
-    """Return True only for a globally routable unicast address."""
+    """Conservative fixed policy, independent of Python's changing is_global tables.
 
-    return (
-        address.is_global
-        and not address.is_multicast
-        and not address.is_reserved
-        and not address.is_unspecified
+    Exclude every IANA special-purpose block, including globally reachable
+    protocol anycast exceptions. IPv6 permits only ordinary global unicast.
+    Registry snapshot reviewed 2026-10-02, IANA update 2025-10-09.
+    """
+    if isinstance(address, ipaddress.IPv4Address):
+        return not any(address in network for network in SPECIAL_IPV4_NETWORKS)
+    return address in PUBLIC_IPV6_SPACE and not any(
+        address in network for network in SPECIAL_IPV6_NETWORKS
     )
 
 
