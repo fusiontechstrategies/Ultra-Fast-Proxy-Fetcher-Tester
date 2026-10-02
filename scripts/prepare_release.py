@@ -53,6 +53,7 @@ WINDOWS_RESERVED_NAMES = {
 PACKAGE_FILES = (
     ".github/release-notes/v2.0.1.md",
     ".github/workflows/release.yml",
+    ".github/workflows/release-promotion.yml",
     ".editorconfig",
     ".gitattributes",
     ".gitignore",
@@ -78,9 +79,11 @@ PACKAGE_FILES = (
     "scripts/prepare_release.py",
     "scripts/verify_distribution.py",
     "scripts/verify_release_integrity.py",
+    "scripts/verify_release_handoff.py",
     "tests/test_proxy_fetcher.py",
     "tests/test_release_assets.py",
     "tests/test_security_regressions.py",
+    "tests/test_transport_encoding.py",
 )
 
 

@@ -46,6 +46,7 @@ class FakeLimitedResponse:
     def __init__(self, chunks: list[bytes], content_length: int | None = None) -> None:
         self.content = FakeContent(chunks)
         self.content_length = content_length
+        self.headers: dict[str, str] = {}
 
 
 class ProxyParsingTests(unittest.TestCase):

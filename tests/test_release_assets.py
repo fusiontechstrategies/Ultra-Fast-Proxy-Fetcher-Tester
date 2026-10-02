@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -11,7 +12,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from scripts import prepare_release
+from scripts import prepare_release, verify_release_handoff
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 VERSION = "2.0.1"
@@ -227,6 +228,72 @@ class ReleaseAssetTests(unittest.TestCase):
             lines[version_checks[0] + 1].strip(),
             '"Ultra-Fast Proxy Fetcher & Tester $RELEASE_VERSION"',
         )
+
+    def test_trusted_handoff_binds_identity_and_every_subject(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.prepare(root, "assets")
+            assets = root / "assets"
+            result = verify_release_handoff.verify_handoff(
+                assets, PROJECT_ROOT, SOURCE_COMMIT, SOURCE_DATE_EPOCH
+            )
+            self.assertEqual(result["tag"], TAG)
+            self.assertEqual(len(result["manifest"]), 7)
+            for commit, epoch in (
+                ("b" * 40, SOURCE_DATE_EPOCH),
+                (SOURCE_COMMIT, SOURCE_DATE_EPOCH + 1),
+            ):
+                with self.assertRaisesRegex(ValueError, "authenticated source identity"):
+                    verify_release_handoff.verify_handoff(assets, PROJECT_ROOT, commit, epoch)
+            candidate = assets / f"Ultra-Fast-Proxy-Fetcher-Tester-{TAG}.zip"
+            candidate.write_bytes(candidate.read_bytes() + b"unreviewed suffix")
+            with self.assertRaises(ValueError):
+                verify_release_handoff.verify_handoff(
+                    assets, PROJECT_ROOT, SOURCE_COMMIT, SOURCE_DATE_EPOCH
+                )
+
+    def test_tagged_helper_is_data_and_cannot_execute_during_promotion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            for relative in prepare_release.PACKAGE_FILES:
+                target = source / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(PROJECT_ROOT / relative, target)
+            for test in (PROJECT_ROOT / "tests").glob("test_*.py"):
+                shutil.copyfile(test, source / "tests" / test.name)
+            # This selected-tag helper would abort immediately if imported or run.
+            (source / "scripts/prepare_release.py").write_text(
+                "raise RuntimeError('tagged code executed')\n"
+            )
+            prepare_release.prepare_release(
+                source,
+                self.DIST_DIR,
+                root / "assets",
+                VERSION,
+                TAG,
+                SOURCE_COMMIT,
+                SOURCE_DATE_EPOCH,
+            )
+            result = verify_release_handoff.verify_handoff(
+                root / "assets", source, SOURCE_COMMIT, SOURCE_DATE_EPOCH
+            )
+            self.assertEqual(result["version"], VERSION)
+
+    def test_privileged_promotion_uses_protected_code_and_run_bound_artifact(self):
+        build = (PROJECT_ROOT / ".github/workflows/release.yml").read_text()
+        promote = (PROJECT_ROOT / ".github/workflows/release-promotion.yml").read_text()
+        self.assertNotIn("id-token: write", build)
+        self.assertNotIn("contents: write", build)
+        self.assertNotIn("attestations: write", build)
+        self.assertIn("workflow_run:", promote)
+        self.assertIn("run['path'] == '.github/workflows/release.yml'", promote)
+        self.assertIn("run['head_sha'] == os.environ['SOURCE_COMMIT']", promote)
+        self.assertIn("ref: ${{ needs.verify.outputs.verifier-commit }}", promote)
+        self.assertIn("artifact-ids: ${{ needs.verify.outputs.artifact-id }}", promote)
+        self.assertIn("--expected-manifest", promote)
+        self.assertNotIn("python -I source-data/", promote)
+        self.assertIn('assets readback "$EXPECTED_MANIFEST"', promote)
 
 
 if __name__ == "__main__":
