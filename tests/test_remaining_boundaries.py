@@ -116,17 +116,21 @@ class ArchiveBudgetTests(unittest.TestCase):
                 cd_offset,
             )
             locator = struct.pack("<4sLQL", b"PK\x06\x07", 0, end, 1)
-            legacy_zero = struct.pack("<4s4H2LH", b"PK\x05\x06", 0, 0, 0, 0, 0, 0, 0)
-            crafted = raw[:end] + zip64 + locator + legacy_zero
-            with zipfile.ZipFile(io.BytesIO(crafted)) as archive:
-                self.assertEqual(len(archive.infolist()), 5000)
-            wheel.write_bytes(crafted)
-            with (
-                patch.object(verifier.zipfile, "ZipFile", side_effect=AssertionError("too late")),
-                self.assertRaisesRegex(ValueError, "ZIP64"),
-                verifier.bounded_wheel(wheel),
-            ):
-                pass
+            for comment_size in (0, 65516, 65535):
+                legacy_zero = struct.pack("<4s4H2LH", b"PK\x05\x06", 0, 0, 0, 0, 0, 0, comment_size)
+                crafted = raw[:end] + zip64 + locator + legacy_zero + b"x" * comment_size
+                with zipfile.ZipFile(io.BytesIO(crafted)) as archive:
+                    self.assertEqual(len(archive.infolist()), 5000)
+                wheel.write_bytes(crafted)
+                with (
+                    self.subTest(comment_size=comment_size),
+                    patch.object(
+                        verifier.zipfile, "ZipFile", side_effect=AssertionError("too late")
+                    ),
+                    self.assertRaisesRegex(ValueError, "ZIP64"),
+                    verifier.bounded_wheel(wheel),
+                ):
+                    pass
 
     def test_zip_member_decoder_size_and_count_budgets(self):
         for kind in ("decoder", "size", "count"):

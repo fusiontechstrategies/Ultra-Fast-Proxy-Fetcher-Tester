@@ -73,8 +73,9 @@ def bounded_wheel(path):
     validate_archive_file(path)
     # Reject inflated central-directory metadata before ZipFile materializes it.
     with path.open("rb") as stream:
-        stream.seek(max(0, path.stat().st_size - 65557))
-        tail = stream.read(65557)
+        # Include the 20-byte ZIP64 locator even with the maximum EOCD comment.
+        stream.seek(max(0, path.stat().st_size - (65557 + 20)))
+        tail = stream.read(65557 + 20)
     start = tail.rfind(b"PK\x05\x06")
     if start < 0 or len(tail) - start < 22:
         raise ValueError("Missing ZIP end record")
