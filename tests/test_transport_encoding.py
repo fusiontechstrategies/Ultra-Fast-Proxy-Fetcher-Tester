@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 import aiohttp
 from aiohttp import web
+from multidict import CIMultiDict
 
 import proxy_fetcher_ultimate as app
 
@@ -24,6 +25,13 @@ class IdentityTransportTests(unittest.IsolatedAsyncioTestCase):
             observed.append(request.headers.get("Accept-Encoding"))
             if request.path == "/encoded":
                 return web.Response(body=compressed, headers={"Content-Encoding": "gzip"})
+            if request.path == "/duplicate":
+                return web.Response(
+                    body=endpoint,
+                    headers=CIMultiDict(
+                        [("Content-Encoding", "identity"), ("Content-Encoding", "gzip")]
+                    ),
+                )
             return web.Response(body=endpoint)
 
         server = web.Application()
@@ -49,11 +57,18 @@ class IdentityTransportTests(unittest.IsolatedAsyncioTestCase):
                         app.SourceSpec(f"http://127.0.0.1:{port}/identity", "http"),
                         asyncio.Semaphore(1),
                     )
+                    duplicate = await app.fetch_source(
+                        session,
+                        app.SourceSpec(f"http://127.0.0.1:{port}/duplicate", "http"),
+                        asyncio.Semaphore(1),
+                    )
             self.assertEqual(encoded.error, "response too large")
             self.assertEqual(encoded.bytes_received, 0)
             self.assertFalse(identity.error)
             self.assertEqual(identity.bytes_received, 13)
-            self.assertEqual(observed, ["identity", "identity"])
+            self.assertEqual(duplicate.error, "response too large")
+            self.assertEqual(duplicate.bytes_received, 0)
+            self.assertEqual(observed, ["identity", "identity", "identity"])
         finally:
             await runner.cleanup()
 
@@ -62,11 +77,23 @@ class IdentityTransportTests(unittest.IsolatedAsyncioTestCase):
             def iter_chunked(self, size):
                 raise AssertionError("Encoded body must not be consumed")
 
-        for encoding in ("gzip", "deflate", "br", "gzip, identity", "unknown"):
+        for encodings in (
+            ("gzip",),
+            ("deflate",),
+            ("br",),
+            ("gzip, identity",),
+            ("unknown",),
+            ("",),
+            ("identity", "gzip"),
+            ("identity", "identity"),
+        ):
             response = type(
                 "EncodedResponse",
                 (),
-                {"headers": {"Content-Encoding": encoding}, "content": UnreadableContent()},
+                {
+                    "headers": CIMultiDict(("Content-Encoding", value) for value in encodings),
+                    "content": UnreadableContent(),
+                },
             )()
-            with self.subTest(encoding=encoding), self.assertRaises(app.SourceTooLargeError):
+            with self.subTest(encodings=encodings), self.assertRaises(app.SourceTooLargeError):
                 await app.read_limited_response(response)

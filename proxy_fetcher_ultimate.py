@@ -575,7 +575,8 @@ async def read_limited_response(
 ) -> bytes:
     """Reject encoded bodies before consuming bytes, then bound identity data."""
 
-    if response.headers.get("Content-Encoding", "").strip().lower() not in {"", "identity"}:
+    encodings = tuple(response.headers.getall("Content-Encoding", ()))
+    if encodings and (len(encodings) != 1 or encodings[0].strip().lower() != "identity"):
         raise SourceTooLargeError("encoded source response is unsupported")
     if response.content_length is not None and response.content_length > max_bytes:
         raise SourceTooLargeError("source response exceeded the size limit")

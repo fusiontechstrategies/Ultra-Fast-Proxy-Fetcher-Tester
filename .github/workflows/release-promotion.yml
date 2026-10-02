@@ -78,7 +78,7 @@ jobs:
       - name: Check out authenticated source strictly as data
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ steps.identity.outputs.source-commit }}
           path: source-data
           persist-credentials: false
       - name: Download only the authenticated run's immutable candidate

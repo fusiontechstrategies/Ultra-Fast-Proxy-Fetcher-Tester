@@ -8,6 +8,7 @@ from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 
 import aiohttp
+from multidict import CIMultiDict
 
 import proxy_fetcher_ultimate as app
 
@@ -46,7 +47,7 @@ class FakeLimitedResponse:
     def __init__(self, chunks: list[bytes], content_length: int | None = None) -> None:
         self.content = FakeContent(chunks)
         self.content_length = content_length
-        self.headers: dict[str, str] = {}
+        self.headers: CIMultiDict[str] = CIMultiDict()
 
 
 class ProxyParsingTests(unittest.TestCase):
