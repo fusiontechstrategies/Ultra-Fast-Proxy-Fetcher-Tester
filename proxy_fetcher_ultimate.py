@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import ipaddress
+import json
 import os
 import re
 import socket
@@ -21,6 +22,7 @@ import tempfile
 import time
 from collections import Counter
 from collections.abc import Callable, Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,7 +31,6 @@ from urllib.parse import urljoin, urlparse
 
 import aiohttp
 from aiohttp.abc import AbstractResolver, ResolveResult
-from aiohttp.resolver import DefaultResolver
 from aiohttp_socks import ProxyConnector
 
 VERSION = "2.0.1"
@@ -109,16 +110,13 @@ class SourceTooLargeError(ValueError):
 class PublicResolver(AbstractResolver):
     """Resolve hostnames while refusing every non-public destination."""
 
-    def __init__(self) -> None:
-        self._resolver = DefaultResolver()
-
     async def resolve(
         self,
         host: str,
         port: int = 0,
         family: socket.AddressFamily = socket.AF_INET,
     ) -> list[ResolveResult]:
-        results = await self._resolver.resolve(host, port, family)
+        results = await cancellable_dns(host, port, family)
         if not results or any(
             not is_global_unicast(
                 ipaddress.ip_address(str(result["host"]).split("%", maxsplit=1)[0])
@@ -129,7 +127,56 @@ class PublicResolver(AbstractResolver):
         return results
 
     async def close(self) -> None:
-        await self._resolver.close()
+        return None
+
+
+async def cancellable_dns(
+    host: str, port: int, family: socket.AddressFamily
+) -> list[ResolveResult]:
+    """Resolve in a cancellable child, avoiding orphan executor DNS at CLI shutdown."""
+    if len(host) > 255:
+        raise OSError("DNS hostname exceeds its limit")
+    script = (
+        "import json,socket,sys; "
+        "rows=socket.getaddrinfo(sys.argv[1],int(sys.argv[2]),family=int(sys.argv[3]),type=socket.SOCK_STREAM); "
+        "assert len(rows)<=128; "
+        "print(json.dumps([[row[0],row[4][0],row[4][1]] for row in rows]))"
+    )
+    # The trusted interpreter and fixed code receive hostname data as arguments,
+    # never through a shell. Isolated mode excludes local shadow modules.
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-I",
+        "-c",
+        script,
+        host,
+        str(port),
+        str(int(family)),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
+        creationflags=0x08000000 if sys.platform == "win32" else 0,
+    )
+    try:
+        output, _ = await asyncio.wait_for(process.communicate(), DEFAULT_SOURCE_TIMEOUT)
+        if process.returncode != 0 or len(output) > 65536:
+            raise OSError("DNS lookup failed or exceeded its response budget")
+        rows = json.loads(output)
+        return [
+            {
+                "hostname": host,
+                "host": row[1],
+                "port": row[2],
+                "family": row[0],
+                "proto": 0,
+                "flags": socket.AI_NUMERICHOST,
+            }
+            for row in rows
+        ]
+    finally:
+        if process.returncode is None:
+            with suppress(ProcessLookupError):
+                process.kill()
+            await process.wait()
 
 
 # The list intentionally contains only sources that returned candidates during
@@ -434,17 +481,11 @@ async def ensure_public_source_destination(url: str) -> None:
     try:
         literal = ipaddress.ip_address(hostname)
     except ValueError:
-        loop = asyncio.get_running_loop()
         try:
-            answers = await loop.getaddrinfo(
-                hostname,
-                parsed.port or 443,
-                family=socket.AF_UNSPEC,
-                type=socket.SOCK_STREAM,
-            )
+            answers = await cancellable_dns(hostname, parsed.port or 443, socket.AF_UNSPEC)
         except OSError as exc:
             raise UnsafeSourceError("source DNS lookup failed") from exc
-        resolved = {str(answer[4][0]).split("%", maxsplit=1)[0] for answer in answers}
+        resolved = {str(answer["host"]).split("%", maxsplit=1)[0] for answer in answers}
         if not resolved or any(
             not is_global_unicast(ipaddress.ip_address(item)) for item in resolved
         ):
@@ -475,47 +516,58 @@ async def fetch_source(
     session: aiohttp.ClientSession,
     source: SourceSpec,
     semaphore: asyncio.Semaphore,
+    *,
+    timeout_seconds: float = DEFAULT_SOURCE_TIMEOUT,
 ) -> SourceFetchResult:
-    """Fetch one source with redirect, destination, and body-size controls."""
+    """One deadline covers policy DNS, every redirect, and body consumption."""
 
-    current_url = source.url
     async with semaphore:
         try:
-            for redirect_count in range(MAX_REDIRECTS + 1):
-                await ensure_public_source_destination(current_url)
-                async with session.get(current_url, allow_redirects=False) as response:
-                    if 300 <= response.status < 400:
-                        location = response.headers.get("Location")
-                        if not location or redirect_count == MAX_REDIRECTS:
-                            return SourceFetchResult(source, error="redirect rejected")
-                        current_url = urljoin(current_url, location)
-                        continue
-                    if response.status != 200:
-                        return SourceFetchResult(source, error=f"HTTP {response.status}")
-                    payload = await read_limited_response(response)
-                    text = payload.decode("utf-8", errors="replace")
-                    targets, rejected = parse_proxy_text(text, source.protocol)
-                    if not targets:
-                        return SourceFetchResult(
-                            source,
-                            rejected=rejected,
-                            bytes_received=len(payload),
-                            error="no valid public endpoints",
-                        )
-                    return SourceFetchResult(
-                        source,
-                        targets,
-                        rejected,
-                        len(payload),
-                    )
+            return await asyncio.wait_for(_fetch_source(session, source), timeout=timeout_seconds)
         except asyncio.TimeoutError:
             return SourceFetchResult(source, error="timeout")
-        except UnsafeSourceError:
-            return SourceFetchResult(source, error="unsafe destination blocked")
-        except SourceTooLargeError:
-            return SourceFetchResult(source, error="response too large")
-        except (aiohttp.ClientError, OSError, ValueError):
-            return SourceFetchResult(source, error="connection error")
+
+
+async def _fetch_source(session: aiohttp.ClientSession, source: SourceSpec) -> SourceFetchResult:
+    """Fetch under the caller's complete source deadline."""
+
+    current_url = source.url
+    try:
+        for redirect_count in range(MAX_REDIRECTS + 1):
+            await ensure_public_source_destination(current_url)
+            async with session.get(current_url, allow_redirects=False) as response:
+                if 300 <= response.status < 400:
+                    location = response.headers.get("Location")
+                    if not location or redirect_count == MAX_REDIRECTS:
+                        return SourceFetchResult(source, error="redirect rejected")
+                    current_url = urljoin(current_url, location)
+                    continue
+                if response.status != 200:
+                    return SourceFetchResult(source, error=f"HTTP {response.status}")
+                payload = await read_limited_response(response)
+                text = payload.decode("utf-8", errors="replace")
+                targets, rejected = parse_proxy_text(text, source.protocol)
+                if not targets:
+                    return SourceFetchResult(
+                        source,
+                        rejected=rejected,
+                        bytes_received=len(payload),
+                        error="no valid public endpoints",
+                    )
+                return SourceFetchResult(
+                    source,
+                    targets,
+                    rejected,
+                    len(payload),
+                )
+    except asyncio.TimeoutError:
+        return SourceFetchResult(source, error="timeout")
+    except UnsafeSourceError:
+        return SourceFetchResult(source, error="unsafe destination blocked")
+    except SourceTooLargeError:
+        return SourceFetchResult(source, error="response too large")
+    except (aiohttp.ClientError, OSError, ValueError):
+        return SourceFetchResult(source, error="connection error")
     return SourceFetchResult(source, error="unexpected redirect state")
 
 
@@ -553,7 +605,10 @@ async def fetch_all_sources(
         trust_env=False,
     ) as session:
         tasks = [
-            asyncio.create_task(fetch_source(session, source, semaphore)) for source in sources
+            asyncio.create_task(
+                fetch_source(session, source, semaphore, timeout_seconds=timeout_seconds)
+            )
+            for source in sources
         ]
         for completed, task in enumerate(asyncio.as_completed(tasks), start=1):
             results.append(await task)

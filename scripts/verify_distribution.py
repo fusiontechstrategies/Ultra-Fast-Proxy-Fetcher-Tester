@@ -1,15 +1,78 @@
-"""Verify installable proxy tester distributions against reviewed source."""
+"""Verify the installable proxy tester distributions against the reviewed source tree."""
 
 from __future__ import annotations
 
 import argparse
+import base64
+import csv
 import email
+import hashlib
+import io
 import tarfile
 import zipfile
 from pathlib import Path, PurePosixPath
 
 MODULE = "proxy_fetcher_ultimate.py"
 BLOCKED_SUFFIXES = {".env", ".key", ".p12", ".pem", ".pfx", ".pyc"}
+
+
+def validate_record(values: dict[str, bytes], record: str) -> None:
+    rows = list(csv.reader(io.StringIO(values[record].decode("utf-8"))))
+    entries = {}
+    for row in rows:
+        if len(row) != 3 or row[0] not in values or row[0] in entries:
+            raise ValueError("Wheel RECORD has an unreviewed, duplicate, or malformed entry")
+        entries[row[0]] = row[1:]
+    if set(entries) != set(values):
+        raise ValueError("Wheel RECORD must cover the exact member set")
+    for name, data in values.items():
+        expected = (
+            ["", ""]
+            if name == record
+            else [
+                "sha256="
+                + base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode(),
+                str(len(data)),
+            ]
+        )
+        if entries[name] != expected:
+            raise ValueError("Wheel RECORD identity differs from the verified member")
+
+
+def validate_metadata(metadata, dependencies) -> None:
+    allowed = {
+        "Metadata-Version",
+        "Name",
+        "Version",
+        "Summary",
+        "Author",
+        "License-Expression",
+        "Project-URL",
+        "Classifier",
+        "Requires-Python",
+        "Description-Content-Type",
+        "License-File",
+        "Dynamic",
+        "Requires-Dist",
+    }
+    if set(metadata.keys()) - allowed:
+        raise ValueError("Package metadata contains unreviewed installation semantics")
+    required = {
+        "Metadata-Version": "2.4",
+        "Requires-Python": "<3.15,>=3.10",
+        "Description-Content-Type": "text/markdown",
+        "License-Expression": "MIT",
+        "License-File": "LICENSE",
+    }
+    for key, value in required.items():
+        if metadata.get_all(key) != [value]:
+            raise ValueError(f"Package metadata has unreviewed {key}")
+    if set(metadata.get_all("Dynamic") or []) - {"license-file", "requires-dist"}:
+        raise ValueError("Package metadata declares unreviewed dynamic fields")
+    if set(metadata.get_all("Requires-Dist") or []) != dependencies:
+        raise ValueError("Package dependencies differ from reviewed requirements")
+    if len(metadata.get_all("Name") or []) != 1 or len(metadata.get_all("Version") or []) != 1:
+        raise ValueError("Package metadata identity must be unique")
 
 
 def safe_names(names: list[str]) -> None:
@@ -29,6 +92,11 @@ def safe_names(names: list[str]) -> None:
 
 
 def verify_distribution(dist_dir: Path, source_root: Path, version: str) -> tuple[Path, Path]:
+    dependencies = {
+        line.strip()
+        for line in (source_root / "requirements.txt").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
     wheel_name = f"ultra_fast_proxy_fetcher_tester-{version}-py3-none-any.whl"
     sdist_name = f"ultra_fast_proxy_fetcher_tester-{version}.tar.gz"
     if {path.name for path in dist_dir.iterdir()} != {wheel_name, sdist_name}:
@@ -37,6 +105,38 @@ def verify_distribution(dist_dir: Path, source_root: Path, version: str) -> tupl
     with zipfile.ZipFile(wheel) as archive:
         names = archive.namelist()
         safe_names(names)
+        prefix = f"ultra_fast_proxy_fetcher_tester-{version}.dist-info/"
+        allowed = {MODULE} | {
+            prefix + name
+            for name in (
+                "METADATA",
+                "WHEEL",
+                "RECORD",
+                "entry_points.txt",
+                "top_level.txt",
+                "licenses/LICENSE",
+            )
+        }
+        if set(names) != allowed:
+            raise ValueError("Wheel contains missing or unreviewed installation members")
+        values = {name: archive.read(name) for name in names}
+        validate_record(values, prefix + "RECORD")
+        wheel_metadata = email.message_from_bytes(values[prefix + "WHEEL"])
+        for key, value in {
+            "Wheel-Version": "1.0",
+            "Root-Is-Purelib": "true",
+            "Tag": "py3-none-any",
+        }.items():
+            if wheel_metadata.get_all(key) != [value]:
+                raise ValueError(
+                    "Wheel installation mode differs from reviewed pure-Python configuration"
+                )
+        if set(wheel_metadata.keys()) != {"Wheel-Version", "Generator", "Root-Is-Purelib", "Tag"}:
+            raise ValueError("Wheel contains unreviewed installation headers")
+        if values[prefix + "top_level.txt"].strip() != MODULE.removesuffix(".py").encode():
+            raise ValueError("Wheel top-level module differs from reviewed source")
+        if values[prefix + "licenses/LICENSE"] != (source_root / "LICENSE").read_bytes():
+            raise ValueError("Wheel license differs from reviewed source")
         if [name for name in names if name.endswith(".py")] != [MODULE]:
             raise ValueError("Wheel must contain only the reviewed runtime module")
         if archive.read(MODULE) != (source_root / MODULE).read_bytes():
@@ -46,21 +146,16 @@ def verify_distribution(dist_dir: Path, source_root: Path, version: str) -> tupl
         if len(metadata) != 1 or len(entry_points) != 1:
             raise ValueError("Wheel is missing unique package metadata or CLI entry point")
         details = email.message_from_bytes(archive.read(metadata[0]))
+        validate_metadata(details, dependencies)
         if (
             details.get("Name") != "ultra-fast-proxy-fetcher-tester"
             or details.get("Version") != version
         ):
             raise ValueError("Wheel package identity differs from release")
-        dependencies = {
-            line.strip()
-            for line in (source_root / "requirements.txt").read_text(encoding="utf-8").splitlines()
-            if line.strip() and not line.lstrip().startswith("#")
-        }
-        if set(details.get_all("Requires-Dist") or []) != dependencies:
-            raise ValueError("Wheel dependencies differ from reviewed requirements")
-        if "proxy-fetcher-tester = proxy_fetcher_ultimate:main" not in archive.read(
-            entry_points[0]
-        ).decode("utf-8"):
+        if (
+            archive.read(entry_points[0]).decode("utf-8").strip()
+            != "[console_scripts]\nproxy-fetcher-tester = proxy_fetcher_ultimate:main"
+        ):
             raise ValueError("Wheel CLI entry point differs from release")
     with tarfile.open(sdist, mode="r:gz") as archive:
         members = archive.getmembers()
@@ -70,7 +165,76 @@ def verify_distribution(dist_dir: Path, source_root: Path, version: str) -> tupl
         roots = {PurePosixPath(member.name).parts[0] for member in members}
         if roots != {f"ultra_fast_proxy_fetcher_tester-{version}"}:
             raise ValueError("Source archive has an unexpected root")
-        for relative in (MODULE, "LICENSE", "README.md", "pyproject.toml", "requirements.txt"):
+        reviewed = {MODULE, "LICENSE", "README.md", "pyproject.toml", "requirements.txt"}
+        reviewed.update(
+            path.relative_to(source_root).as_posix()
+            for path in (source_root / "tests").glob("test_*.py")
+        )
+        generated = {"PKG-INFO", "setup.cfg"} | {
+            "ultra_fast_proxy_fetcher_tester.egg-info/" + name
+            for name in (
+                "PKG-INFO",
+                "SOURCES.txt",
+                "dependency_links.txt",
+                "requires.txt",
+                "entry_points.txt",
+                "top_level.txt",
+            )
+        }
+        actual = {
+            "/".join(PurePosixPath(member.name).parts[1:]) for member in members if member.isfile()
+        }
+        if actual != reviewed | generated:
+            raise ValueError("Source archive contains missing or unreviewed installation members")
+        prefix = (
+            f"ultra_fast_proxy_fetcher_tester-{version}/ultra_fast_proxy_fetcher_tester.egg-info/"
+        )
+        sources = archive.extractfile(prefix + "SOURCES.txt").read().decode("utf-8").splitlines()
+        if len(sources) != len(set(sources)) or set(sources) != reviewed | (
+            generated - {"PKG-INFO", "setup.cfg"}
+        ):
+            raise ValueError("Source file manifest differs from the exact reviewed build inputs")
+        declared = archive.extractfile(prefix + "requires.txt").read().decode("utf-8").splitlines()
+        if set(declared) != dependencies or len(declared) != len(dependencies):
+            raise ValueError("Source archive build dependencies differ from reviewed requirements")
+        if archive.extractfile(prefix + "dependency_links.txt").read().strip():
+            raise ValueError("Source archive has unreviewed dependency links")
+        if (
+            archive.extractfile(prefix + "top_level.txt").read().strip()
+            != MODULE.removesuffix(".py").encode()
+        ):
+            raise ValueError("Source archive top-level module differs from reviewed source")
+        for relative in reviewed:
+            contents = archive.extractfile(
+                f"ultra_fast_proxy_fetcher_tester-{version}/{relative}"
+            ).read()
+            if contents != (source_root / relative).read_bytes():
+                raise ValueError(f"Source archive differs from reviewed {relative}")
+        config = archive.extractfile(f"ultra_fast_proxy_fetcher_tester-{version}/setup.cfg").read()
+        if config.replace(b"\r\n", b"\n").strip() != b"[egg_info]\ntag_build = \ntag_date = 0":
+            raise ValueError("Source archive contains unreviewed setup configuration")
+        for relative in ("PKG-INFO", "ultra_fast_proxy_fetcher_tester.egg-info/PKG-INFO"):
+            metadata = email.message_from_bytes(
+                archive.extractfile(f"ultra_fast_proxy_fetcher_tester-{version}/{relative}").read()
+            )
+            validate_metadata(metadata, dependencies)
+            if (
+                metadata.get("Name") != "ultra-fast-proxy-fetcher-tester"
+                or metadata.get("Version") != version
+                or set(metadata.get_all("Requires-Dist") or []) != dependencies
+            ):
+                raise ValueError("Source archive package metadata differs from release")
+        entries = (
+            archive.extractfile(
+                f"ultra_fast_proxy_fetcher_tester-{version}/ultra_fast_proxy_fetcher_tester.egg-info/entry_points.txt"
+            )
+            .read()
+            .decode("utf-8")
+            .strip()
+        )
+        if entries != "[console_scripts]\nproxy-fetcher-tester = proxy_fetcher_ultimate:main":
+            raise ValueError("Source archive entry points differ from reviewed CLI")
+        for relative in (MODULE, "LICENSE", "README.md", "pyproject.toml"):
             name = f"ultra_fast_proxy_fetcher_tester-{version}/{relative}"
             member = archive.extractfile(name)
             if member is None or member.read() != (source_root / relative).read_bytes():
@@ -82,8 +246,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("dist_dir", type=Path)
     parser.add_argument("--version", required=True)
+    parser.add_argument("--source-root", type=Path)
     arguments = parser.parse_args()
-    root = Path(__file__).resolve().parents[1]
+    root = (
+        arguments.source_root.resolve()
+        if arguments.source_root
+        else Path(__file__).resolve().parents[1]
+    )
     wheel, sdist = verify_distribution(arguments.dist_dir.resolve(), root, arguments.version)
     print(f"Verified {wheel.name} and {sdist.name}")
 
