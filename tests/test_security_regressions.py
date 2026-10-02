@@ -91,16 +91,23 @@ class DistributionSecurityTests(unittest.TestCase):
         version = "2.0.1"
         wheel = directory / f"ultra_fast_proxy_fetcher_tester-{version}-py3-none-any.whl"
         sdist = directory / f"ultra_fast_proxy_fetcher_tester-{version}.tar.gz"
-        metadata = (
-            f"Metadata-Version: 2.4\nName: ultra-fast-proxy-fetcher-tester\nVersion: {version}\nRequires-Dist: aiohttp==3.14.3\nRequires-Dist: aiohttp-socks==0.12.0\nRequires-Python: <3.15,>=3.10\nDescription-Content-Type: text/markdown\nLicense-Expression: MIT\nLicense-File: LICENSE\n"
-        ).encode()
+        metadata = f"Metadata-Version: 2.4\nName: ultra-fast-proxy-fetcher-tester\nVersion: {version}\nRequires-Dist: aiohttp==3.14.3\nRequires-Dist: aiohttp-socks==0.12.0\nRequires-Python: <3.15,>=3.10\nDescription-Content-Type: text/markdown\nLicense-Expression: MIT\nLicense-File: LICENSE\n"
+        project = verify_distribution.reviewed_project(ROOT)["project"]
+        metadata += f"Summary: {project['description']}\nAuthor: {project['authors'][0]['name']}\n"
+        metadata += "".join(
+            f"Project-URL: {label}, {url}\n" for label, url in project["urls"].items()
+        )
+        metadata += "".join(f"Classifier: {value}\n" for value in project["classifiers"])
+        metadata = (metadata + "\n" + (ROOT / "README.md").read_text(encoding="utf-8")).encode(
+            "utf-8"
+        )
         entry = b"[console_scripts]\nproxy-fetcher-tester = proxy_fetcher_ultimate:main\n"
         prefix = f"ultra_fast_proxy_fetcher_tester-{version}.dist-info/"
         values = {
             verify_distribution.MODULE: (ROOT / verify_distribution.MODULE).read_bytes(),
             prefix + "METADATA": metadata,
             prefix
-            + "WHEEL": b"Wheel-Version: 1.0\nGenerator: synthetic\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
+            + "WHEEL": b"Wheel-Version: 1.0\nGenerator: setuptools (84.0.0)\nRoot-Is-Purelib: true\nTag: py3-none-any\n",
             prefix + "entry_points.txt": entry,
             prefix + "top_level.txt": b"proxy_fetcher_ultimate\n",
             prefix + "licenses/LICENSE": (ROOT / "LICENSE").read_bytes(),

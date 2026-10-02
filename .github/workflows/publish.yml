@@ -27,6 +27,8 @@ jobs:
     outputs:
       manifest: ${{ steps.assets.outputs.manifest }}
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      source-commit: ${{ steps.identity.outputs.source-commit }}
+      release-id: ${{ steps.identity.outputs.release-id }}
     steps:
       - name: Check out tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -48,6 +50,7 @@ jobs:
           python-version: "3.12"
 
       - name: Validate release identity and asset set
+        id: identity
         shell: bash
         run: |
           set -euo pipefail
@@ -60,6 +63,9 @@ jobs:
           test "$(gh api "repos/$GH_REPO/commits/$commit" --jq '.commit.verification.verified')" = true
           test "$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft')" = false
           test "$(gh release view "$RELEASE_TAG" --json isPrerelease --jq '.isPrerelease')" = false
+          test "$(gh api "repos/$GH_REPO/releases/tags/$RELEASE_TAG" --jq '.immutable')" = true
+          echo "source-commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "release-id=$(gh release view "$RELEASE_TAG" --json databaseId --jq '.databaseId')" >> "$GITHUB_OUTPUT"
           expected="$(printf '%s\n' \
             "Ultra-Fast-Proxy-Fetcher-Tester-v${version}.py" \
             "Ultra-Fast-Proxy-Fetcher-Tester-v${version}.zip" \
@@ -141,6 +147,7 @@ jobs:
       name: pypi
       url: https://pypi.org/p/ultra-fast-proxy-fetcher-tester
     permissions:
+      contents: read
       id-token: write
     steps:
       - name: Download verified distributions
@@ -166,6 +173,46 @@ jobs:
               path = root / name
               assert path.is_file() and not path.is_symlink()
               assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
+          PY
+
+      - name: Recheck publication authorization after environment approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          VERIFIED_COMMIT: ${{ needs.verify.outputs.source-commit }}
+          VERIFIED_RELEASE_ID: ${{ needs.verify.outputs.release-id }}
+        run: |
+          python -I - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          from urllib.parse import quote
+
+          repo = os.environ["GH_REPO"]
+          tag = os.environ["RELEASE_TAG"]
+          commit = os.environ["VERIFIED_COMMIT"]
+          assert re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag)
+          assert re.fullmatch(r"[0-9a-f]{40}", commit)
+          def api(path):
+              return json.loads(subprocess.check_output(["gh", "api", f"repos/{repo}/{path}"], text=True))
+          locked_release = api(f"releases/tags/{quote(tag, safe='')}")
+          assert locked_release.get("immutable") is True
+          assert str(locked_release["id"]) == os.environ["VERIFIED_RELEASE_ID"]
+          target = api(f"git/ref/tags/{quote(tag, safe='')}")["object"]
+          for _ in range(8):
+              if target["type"] == "commit":
+                  break
+              assert target["type"] == "tag"
+              target = api(f"git/tags/{target['sha']}")["object"]
+          assert target["type"] == "commit" and target["sha"] == commit
+          assert api(f"commits/{commit}")["commit"]["verification"]["verified"] is True
+          assert api(f"compare/{commit}...main")["status"] in ("identical", "ahead")
+          release = api(f"releases/tags/{quote(tag, safe='')}")
+          assert release.get("immutable") is True
+          assert str(release["id"]) == os.environ["VERIFIED_RELEASE_ID"]
+          assert release["tag_name"] == tag and release["draft"] is False and release["prerelease"] is False
           PY
 
       - name: Publish with PyPI trusted publishing
