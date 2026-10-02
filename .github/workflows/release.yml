@@ -52,6 +52,7 @@ jobs:
           fi
           release_commit="$(git rev-list --max-count=1 "$GITHUB_REF_NAME")"
           test "$release_commit" = "$GITHUB_SHA"
+          python -I scripts/verify_release_integrity.py source "$release_commit"
           git fetch --no-tags origin main
           git merge-base --is-ancestor "$release_commit" origin/main
           verified="$(gh api "repos/$GITHUB_REPOSITORY/commits/$release_commit" --jq '.commit.verification.verified')"
@@ -66,7 +67,7 @@ jobs:
           echo "epoch=$(git show -s --format=%ct "$release_commit")" >> "$GITHUB_OUTPUT"
 
       - name: Install complete hash-locked runtime and build dependencies
-        run: python -m pip install --disable-pip-version-check --require-hashes -r requirements-release-lock.txt
+        run: python -I -m pip install --only-binary=:all: --disable-pip-version-check --require-hashes -r requirements-release-lock.txt
 
       - name: Build exact release assets twice
         env:
@@ -76,23 +77,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m build --no-isolation --wheel --sdist --outdir package-dist
-          python scripts/normalize_wheel.py --source-date-epoch "$SOURCE_DATE_EPOCH" package-dist/*.whl
-          python scripts/normalize_sdist.py --source-date-epoch "$SOURCE_DATE_EPOCH" package-dist/*.tar.gz
-          python scripts/verify_distribution.py package-dist --version "$RELEASE_VERSION"
-          python -m twine check package-dist/*
-          python -m build --no-isolation --wheel --sdist --outdir package-repeat
-          python scripts/normalize_wheel.py --source-date-epoch "$SOURCE_DATE_EPOCH" package-repeat/*.whl
-          python scripts/normalize_sdist.py --source-date-epoch "$SOURCE_DATE_EPOCH" package-repeat/*.tar.gz
+          python -I -m build --no-isolation --wheel --sdist --outdir package-dist
+          python -I scripts/normalize_wheel.py --source-date-epoch "$SOURCE_DATE_EPOCH" package-dist/*.whl
+          python -I scripts/normalize_sdist.py --source-date-epoch "$SOURCE_DATE_EPOCH" package-dist/*.tar.gz
+          python -I scripts/verify_distribution.py package-dist --version "$RELEASE_VERSION"
+          python -I -m twine check package-dist/*
+          python -I -m build --no-isolation --wheel --sdist --outdir package-repeat
+          python -I scripts/normalize_wheel.py --source-date-epoch "$SOURCE_DATE_EPOCH" package-repeat/*.whl
+          python -I scripts/normalize_sdist.py --source-date-epoch "$SOURCE_DATE_EPOCH" package-repeat/*.tar.gz
           diff --recursive --brief package-dist package-repeat
-          python scripts/prepare_release.py \
+          python -I scripts/prepare_release.py \
             --version "$RELEASE_VERSION" \
             --tag "$GITHUB_REF_NAME" \
             --source-commit "$RELEASE_COMMIT" \
             --source-date-epoch "$SOURCE_DATE_EPOCH" \
             --dist-dir package-dist \
             --output-directory release-assets
-          python scripts/prepare_release.py \
+          python -I scripts/prepare_release.py \
             --version "$RELEASE_VERSION" \
             --tag "$GITHUB_REF_NAME" \
             --source-commit "$RELEASE_COMMIT" \
@@ -116,9 +117,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(python "release-assets/Ultra-Fast-Proxy-Fetcher-Tester-v$RELEASE_VERSION.py" --version)" = \
+          test "$(python -I "release-assets/Ultra-Fast-Proxy-Fetcher-Tester-v$RELEASE_VERSION.py" --version)" = \
             "Ultra-Fast Proxy Fetcher & Tester $RELEASE_VERSION"
-          python "release-assets/Ultra-Fast-Proxy-Fetcher-Tester-v$RELEASE_VERSION.py" --help >/dev/null
+          python -I "release-assets/Ultra-Fast-Proxy-Fetcher-Tester-v$RELEASE_VERSION.py" --help >/dev/null
 
       - name: Preserve the exact release assets
         id: upload
