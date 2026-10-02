@@ -16,19 +16,14 @@ import unicodedata
 import zipfile
 from pathlib import Path, PurePosixPath
 
-if __package__:
-    from .verify_distribution import verify_distribution
-else:
-    # Load only this verified helper path; isolated Python omits the script directory.
-    helper_path = Path(__file__).resolve().with_name("verify_distribution.py")
-    helper_spec = importlib.util.spec_from_file_location(
-        "release_distribution_verifier", helper_path
-    )
-    if helper_spec is None or helper_spec.loader is None:
-        raise RuntimeError("Unable to load the reviewed distribution verifier")
-    helper_module = importlib.util.module_from_spec(helper_spec)
-    helper_spec.loader.exec_module(helper_module)
-    verify_distribution = helper_module.verify_distribution
+# Resolve only this reviewed sibling, including package-import call sites.
+helper_path = Path(__file__).resolve().with_name("verify_distribution.py")
+helper_spec = importlib.util.spec_from_file_location("release_distribution_verifier", helper_path)
+if helper_spec is None or helper_spec.loader is None:
+    raise RuntimeError("Unable to load the reviewed distribution verifier")
+helper_module = importlib.util.module_from_spec(helper_spec)
+helper_spec.loader.exec_module(helper_module)
+verify_distribution = helper_module.verify_distribution
 
 PROJECT_NAME = "Ultra-Fast Proxy Fetcher and Tester"
 PROJECT_SLUG = "Ultra-Fast-Proxy-Fetcher-Tester"
