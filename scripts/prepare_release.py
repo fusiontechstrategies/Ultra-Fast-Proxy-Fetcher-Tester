@@ -16,19 +16,14 @@ import unicodedata
 import zipfile
 from pathlib import Path, PurePosixPath
 
-if __package__:
-    from .verify_distribution import verify_distribution
-else:
-    # Load only this verified helper path; isolated Python omits the script directory.
-    helper_path = Path(__file__).resolve().with_name("verify_distribution.py")
-    helper_spec = importlib.util.spec_from_file_location(
-        "release_distribution_verifier", helper_path
-    )
-    if helper_spec is None or helper_spec.loader is None:
-        raise RuntimeError("Unable to load the reviewed distribution verifier")
-    helper_module = importlib.util.module_from_spec(helper_spec)
-    helper_spec.loader.exec_module(helper_module)
-    verify_distribution = helper_module.verify_distribution
+# Resolve only this reviewed sibling, including package-import call sites.
+helper_path = Path(__file__).resolve().with_name("verify_distribution.py")
+helper_spec = importlib.util.spec_from_file_location("release_distribution_verifier", helper_path)
+if helper_spec is None or helper_spec.loader is None:
+    raise RuntimeError("Unable to load the reviewed distribution verifier")
+helper_module = importlib.util.module_from_spec(helper_spec)
+helper_spec.loader.exec_module(helper_module)
+verify_distribution = helper_module.verify_distribution
 
 PROJECT_NAME = "Ultra-Fast Proxy Fetcher and Tester"
 PROJECT_SLUG = "Ultra-Fast-Proxy-Fetcher-Tester"
@@ -53,6 +48,7 @@ WINDOWS_RESERVED_NAMES = {
 PACKAGE_FILES = (
     ".github/release-notes/v2.0.1.md",
     ".github/workflows/release.yml",
+    ".github/workflows/release-promotion.yml",
     ".editorconfig",
     ".gitattributes",
     ".gitignore",
@@ -78,9 +74,11 @@ PACKAGE_FILES = (
     "scripts/prepare_release.py",
     "scripts/verify_distribution.py",
     "scripts/verify_release_integrity.py",
+    "scripts/verify_release_handoff.py",
     "tests/test_proxy_fetcher.py",
     "tests/test_release_assets.py",
     "tests/test_security_regressions.py",
+    "tests/test_transport_encoding.py",
 )
 
 

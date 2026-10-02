@@ -54,9 +54,17 @@ jobs:
       - name: Check out workflow-reviewed verification code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ steps.verifier.outputs.commit }}
+          ref: refs/heads/main
           persist-credentials: false
           path: trusted-verifier
+
+      - name: Confirm independently captured verifier before executing helpers
+        env:
+          EXPECTED_VERIFIER_COMMIT: ${{ steps.verifier.outputs.commit }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C trusted-verifier rev-parse HEAD)" = "$EXPECTED_VERIFIER_COMMIT"
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -127,13 +135,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          commit="$(git rev-parse HEAD)"
           for asset in release-assets/*; do
             gh attestation verify "$asset" \
               --repo "$GH_REPO" \
-              --signer-workflow "$GH_REPO/.github/workflows/release.yml" \
-              --source-digest "$commit" \
-              --source-ref "refs/tags/$RELEASE_TAG"
+              --signer-workflow "$GH_REPO/.github/workflows/release-promotion.yml" \
+              --source-ref "refs/heads/main"
           done
 
       - name: Bind final publication bytes to attested originals

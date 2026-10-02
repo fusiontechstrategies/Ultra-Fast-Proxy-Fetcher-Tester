@@ -2,7 +2,7 @@
 
 Ultra-Fast Proxy Fetcher and Tester releases come from a reviewed, fully tested commit on protected `main`. Runtime identity, changelog, release notes, dependency pins, tag, assets, checksums, SBOM, and evidence must describe the same stable version.
 
-Creating a tag and publishing a GitHub release each require an explicit maintainer decision. The tag workflow can create only a draft. It contains no release-publication or package-registry command.
+Creating a tag and publishing a GitHub release each require an explicit maintainer decision. The tag workflow builds a read-only candidate. A separate protected-main workflow can create an approved draft. Neither workflow contains a release-publication or package-registry command.
 
 ## Exact asset contract
 
@@ -60,17 +60,30 @@ The builder fails closed on a mismatched version, tag, changelog, release notes 
 
 Tag creation is maintainer-controlled. The tag must be `vX.Y.Z` and resolve to the approved protected-main commit. That commit must be GitHub-verified and reachable from protected `main`.
 
-Pushing the tag starts `.github/workflows/release.yml`. The workflow:
+Pushing the tag starts `.github/workflows/release.yml`. This read-only workflow:
 
 1. validates the tag and exact commit
 2. refuses to continue if a release already exists
 3. builds the seven files twice and compares every byte
 4. exercises the exact standalone runtime without network access
-5. attests every asset with GitHub provenance
-6. creates a non-prerelease draft from committed versioned notes
-7. confirms the draft contains exactly the seven approved files
+5. uploads the immutable seven-asset candidate
 
-The workflow has no manual trigger and no publication command.
+After a successful authenticated tag run, `.github/workflows/release-promotion.yml`
+executes from protected `main`. It binds the source run, source commit and exact
+artifact ID, verifies signed protected-main ancestry, and independently rebuilds
+the expected asset manifest with verification code pinned to its own reviewed
+main commit. The tagged source is read as data. Its scripts are never executed
+in jobs with attestation or release-write permission.
+
+Both privileged jobs require the main-only `release` environment. Each downloads
+the same artifact ID and repeats the complete reconstruction before acting.
+The attestation identifies the protected-main promotion workflow and hashes the
+seven source-bound assets. Draft creation then downloads the remote assets and
+checks every digest against that independently reconstructed manifest. An
+authorized repository administrator can explicitly bypass environment approval;
+administrators and protected-main reviewers remain trusted operators.
+
+The build and promotion workflows have no manual trigger and no publication command.
 
 ## Publication review
 
@@ -92,4 +105,4 @@ Publish only after every check passes. Then repeat the public download, digest, 
 
 ## Registry publication remains separate
 
-The separate manual `publish.yml` workflow verifies the public release, its exact asset set, checksums, package contents, evidence, and GitHub provenance before passing only the wheel and source archive to the protected `pypi` environment. Publication requires a registered PyPI trusted publisher, environment approval, and clean-install review. Never add a long-lived registry token merely to simplify publication.
+The separate manual `publish.yml` workflow verifies the public release, its exact asset set, checksums, package contents, evidence, and GitHub provenance from the protected-main promotion workflow before passing only the wheel and source archive to the protected `pypi` environment. The attestation source ref is `refs/heads/main`; the tagged runtime source identity is bound separately by the reconstructed release evidence and package bytes. Publication requires a registered PyPI trusted publisher, environment approval, and clean-install review. Never add a long-lived registry token merely to simplify publication.

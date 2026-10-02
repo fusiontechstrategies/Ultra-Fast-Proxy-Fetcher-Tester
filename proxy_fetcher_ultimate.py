@@ -573,8 +573,11 @@ async def read_limited_response(
     response: aiohttp.ClientResponse,
     max_bytes: int = MAX_SOURCE_BYTES,
 ) -> bytes:
-    """Read a response body while enforcing a decompressed size limit."""
+    """Reject encoded bodies before consuming bytes, then bound identity data."""
 
+    encodings = tuple(response.headers.getall("Content-Encoding", ()))
+    if encodings and (len(encodings) != 1 or encodings[0].strip().lower() != "identity"):
+        raise SourceTooLargeError("encoded source response is unsupported")
     if response.content_length is not None and response.content_length > max_bytes:
         raise SourceTooLargeError("source response exceeded the size limit")
     content = bytearray()
@@ -608,7 +611,12 @@ async def _fetch_source(session: aiohttp.ClientSession, source: SourceSpec) -> S
     try:
         for redirect_count in range(MAX_REDIRECTS + 1):
             await ensure_public_source_destination(current_url)
-            async with session.get(current_url, allow_redirects=False) as response:
+            async with session.get(
+                current_url,
+                allow_redirects=False,
+                auto_decompress=False,
+                headers={"Accept-Encoding": "identity"},
+            ) as response:
                 if 300 <= response.status < 400:
                     location = response.headers.get("Location")
                     if not location or redirect_count == MAX_REDIRECTS:
@@ -667,6 +675,7 @@ async def fetch_all_sources(
     headers = {
         "User-Agent": USER_AGENT,
         "Accept": "text/plain,text/html;q=0.8,*/*;q=0.1",
+        "Accept-Encoding": "identity",
     }
     semaphore = asyncio.Semaphore(concurrency)
     results: list[SourceFetchResult] = []
@@ -676,6 +685,7 @@ async def fetch_all_sources(
         headers=headers,
         cookie_jar=aiohttp.DummyCookieJar(),
         trust_env=False,
+        auto_decompress=False,
     ) as session:
         tasks = [
             asyncio.create_task(
