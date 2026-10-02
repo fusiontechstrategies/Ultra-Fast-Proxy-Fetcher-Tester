@@ -929,12 +929,18 @@ def format_results(results: Sequence[ProxyCheckResult]) -> str:
 @contextmanager
 def windows_output_directory_lock(path: Path) -> Iterator[None]:
     """Pin a regular directory without following or sharing deletion of reparse points."""
-    if sys.platform != "win32":
+    is_windows = sys.platform == "win32"
+    if not is_windows:
         raise OSError("Windows directory handles unavailable")
     import ctypes.wintypes
 
     wintypes = ctypes.wintypes
-    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    win_dll = getattr(ctypes, "WinDLL", None)
+    win_error = getattr(ctypes, "WinError", None)
+    last_error = getattr(ctypes, "get_last_error", None)
+    if not callable(win_dll) or not callable(win_error) or not callable(last_error):
+        raise OSError("Windows directory handles unavailable")
+    kernel = win_dll("kernel32", use_last_error=True)
     kernel.CreateFileW.argtypes = [
         wintypes.LPCWSTR,
         wintypes.DWORD,
@@ -956,13 +962,13 @@ def windows_output_directory_lock(path: Path) -> Iterator[None]:
     kernel.GetFileInformationByHandleEx.restype = wintypes.BOOL
     handle = kernel.CreateFileW(str(path), 0x81, 3, None, 3, 0x02200000, None)
     if handle == ctypes.c_void_p(-1).value:
-        raise ctypes.WinError(ctypes.get_last_error())
+        raise win_error(last_error())
     try:
         attributes = (wintypes.DWORD * 2)()
         if not kernel.GetFileInformationByHandleEx(
             handle, 9, ctypes.byref(attributes), ctypes.sizeof(attributes)
         ):
-            raise ctypes.WinError(ctypes.get_last_error())
+            raise win_error(last_error())
         if not attributes[0] & 0x10 or attributes[0] & 0x400:
             raise PermissionError("Output parent must be a regular non-reparse directory")
         yield

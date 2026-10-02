@@ -78,6 +78,10 @@ def bounded_wheel(path):
     start = tail.rfind(b"PK\x05\x06")
     if start < 0 or len(tail) - start < 22:
         raise ValueError("Missing ZIP end record")
+    # ZipFile honors this locator even when the legacy end record advertises zero.
+    # These small release wheels never require ZIP64 metadata.
+    if start >= 20 and tail[start - 20 : start - 16] == b"PK\x06\x07":
+        raise ValueError("ZIP64 archives are unsupported")
     _, disk, cd_disk, disk_count, count, cd_bytes, _, comment = struct.unpack(
         "<4s4H2LH", tail[start : start + 22]
     )

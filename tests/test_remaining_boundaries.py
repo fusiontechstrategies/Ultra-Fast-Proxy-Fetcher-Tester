@@ -3,6 +3,7 @@
 import asyncio
 import io
 import os
+import struct
 import tarfile
 import tempfile
 import time
@@ -33,11 +34,13 @@ class CandidateWorkTests(unittest.TestCase):
 
 class CooperativeParserTests(unittest.IsolatedAsyncioTestCase):
     async def test_dense_duplicate_work_yields_to_deadline(self):
+        calls = []
+
         def slow_validator(host):
+            calls.append(host)
             time.sleep(0.001)
             return True
 
-        started = time.monotonic()
         with (
             patch.object(app, "is_public_ipv4", side_effect=slow_validator),
             self.assertRaises(asyncio.TimeoutError),
@@ -45,7 +48,10 @@ class CooperativeParserTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.wait_for(
                 app.parse_proxy_text_async("8.8.8.8:80\n" * 5000, "http"), timeout=0.01
             )
-        self.assertLess(time.monotonic() - started, 0.5)
+        # Host timer granularity varies. Cancellation must bound completed work,
+        # rather than require a universal subsecond wall-clock threshold.
+        self.assertGreater(len(calls), 0)
+        self.assertLessEqual(len(calls), 512)
 
 
 class OutputBoundaryTests(unittest.TestCase):
@@ -86,6 +92,42 @@ class OutputBoundaryTests(unittest.TestCase):
 
 
 class ArchiveBudgetTests(unittest.TestCase):
+    def test_zip64_legacy_zero_record_is_rejected_before_zipfile(self):
+        with tempfile.TemporaryDirectory() as directory:
+            wheel = Path(directory) / "test.whl"
+            stream = io.BytesIO()
+            with zipfile.ZipFile(stream, "w") as archive:
+                for index in range(5000):
+                    archive.writestr(str(index), b"x")
+            raw = stream.getvalue()
+            end = len(raw) - 22
+            _, _, _, _, count, cd_bytes, cd_offset, _ = struct.unpack("<4s4H2LH", raw[end:])
+            zip64 = struct.pack(
+                "<4sQ2H2L4Q",
+                b"PK\x06\x06",
+                44,
+                45,
+                45,
+                0,
+                0,
+                count,
+                count,
+                cd_bytes,
+                cd_offset,
+            )
+            locator = struct.pack("<4sLQL", b"PK\x06\x07", 0, end, 1)
+            legacy_zero = struct.pack("<4s4H2LH", b"PK\x05\x06", 0, 0, 0, 0, 0, 0, 0)
+            crafted = raw[:end] + zip64 + locator + legacy_zero
+            with zipfile.ZipFile(io.BytesIO(crafted)) as archive:
+                self.assertEqual(len(archive.infolist()), 5000)
+            wheel.write_bytes(crafted)
+            with (
+                patch.object(verifier.zipfile, "ZipFile", side_effect=AssertionError("too late")),
+                self.assertRaisesRegex(ValueError, "ZIP64"),
+                verifier.bounded_wheel(wheel),
+            ):
+                pass
+
     def test_zip_member_decoder_size_and_count_budgets(self):
         for kind in ("decoder", "size", "count"):
             with tempfile.TemporaryDirectory() as directory:
