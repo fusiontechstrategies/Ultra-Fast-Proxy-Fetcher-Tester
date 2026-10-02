@@ -61,13 +61,16 @@ PACKAGE_FILES = (
     "pyproject.toml",
     "requirements-dev.txt",
     "requirements-build.txt",
+    "requirements-release-lock.txt",
     "requirements.txt",
     "scripts/normalize_sdist.py",
     "scripts/normalize_wheel.py",
     "scripts/prepare_release.py",
     "scripts/verify_distribution.py",
+    "scripts/verify_release_integrity.py",
     "tests/test_proxy_fetcher.py",
     "tests/test_release_assets.py",
+    "tests/test_security_regressions.py",
 )
 
 

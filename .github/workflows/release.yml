@@ -22,6 +22,8 @@ jobs:
     outputs:
       commit: ${{ steps.identity.outputs.commit }}
       version: ${{ steps.identity.outputs.version }}
+      manifest: ${{ steps.assets.outputs.manifest }}
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
     steps:
       - name: Check out tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -63,11 +65,8 @@ jobs:
           echo "commit=$release_commit" >> "$GITHUB_OUTPUT"
           echo "epoch=$(git show -s --format=%ct "$release_commit")" >> "$GITHUB_OUTPUT"
 
-      - name: Install exact runtime dependencies
-        run: python -m pip install --disable-pip-version-check -r requirements.txt
-
-      - name: Install pinned build tools
-        run: python -m pip install --disable-pip-version-check -r requirements-build.txt
+      - name: Install complete hash-locked runtime and build dependencies
+        run: python -m pip install --disable-pip-version-check --require-hashes -r requirements-release-lock.txt
 
       - name: Build exact release assets twice
         env:
@@ -107,6 +106,10 @@ jobs:
           done
           test "$(find release-assets -maxdepth 1 -type f | wc -l)" -eq 7
 
+      - name: Capture immutable candidate identity before execution
+        id: assets
+        run: echo "manifest=$(python -I scripts/verify_release_integrity.py assets release-assets -)" >> "$GITHUB_OUTPUT"
+
       - name: Exercise the exact standalone runtime
         env:
           RELEASE_VERSION: ${{ steps.identity.outputs.version }}
@@ -118,6 +121,7 @@ jobs:
           python "release-assets/Ultra-Fast-Proxy-Fetcher-Tester-v$RELEASE_VERSION.py" --help >/dev/null
 
       - name: Preserve the exact release assets
+        id: upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-assets
@@ -138,8 +142,31 @@ jobs:
       - name: Download the exact release assets
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: release-assets
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          merge-multiple: true
           path: release-assets
+
+      - name: Check out reviewed source and verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          path: verifier
+
+      - name: Verify final bytes and installation inputs before attestation
+        env:
+          EXPECTED_MANIFEST: ${{ needs.build.outputs.manifest }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          python -I verifier/scripts/verify_release_integrity.py assets release-assets "$EXPECTED_MANIFEST"
+          mkdir package-check
+          cp release-assets/*.whl release-assets/*.tar.gz package-check/
+          python -I verifier/scripts/verify_distribution.py package-check --source-root verifier --version "$RELEASE_VERSION"
+          python -I - "$RELEASE_VERSION" <<'PY'
+          import sys
+          from pathlib import Path
+          assert Path(f"release-assets/Ultra-Fast-Proxy-Fetcher-Tester-v{sys.argv[1]}.py").read_bytes() == Path("verifier/proxy_fetcher_ultimate.py").read_bytes()
+          PY
 
       - name: Attest every release asset
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
@@ -162,8 +189,14 @@ jobs:
       - name: Download the exact release assets
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: release-assets
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          merge-multiple: true
           path: release-assets
+
+      - name: Verify final draft inputs
+        env:
+          EXPECTED_MANIFEST: ${{ needs.build.outputs.manifest }}
+        run: python -I scripts/verify_release_integrity.py assets release-assets "$EXPECTED_MANIFEST"
 
       - name: Create draft release
         env:
@@ -198,7 +231,7 @@ jobs:
           gh release view "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --json isDraft,isPrerelease,assets > release-state.json
-          python - "$RELEASE_VERSION" <<'PY'
+          python -I - "$RELEASE_VERSION" <<'PY'
           import json
           import sys
 
