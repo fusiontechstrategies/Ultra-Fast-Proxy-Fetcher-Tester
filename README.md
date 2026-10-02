@@ -223,3 +223,32 @@ immutable releases before publishing the next fully assembled draft, following
 The final job checks release identity and stable/public flags again after
 approval. GitHub still permits prerelease metadata changes; these flags are
 verified snapshots, not an atomic transaction spanning GitHub and PyPI.
+
+
+### Additional source, output and publication boundaries
+
+Source parsing counts every candidate validation, including duplicate and rejected
+records, with a 20,000-attempt limit. The asynchronous download path yields every
+64 candidates so dense source text cannot suppress the source deadline.
+
+Output publication uses the requested lexical filename, rejects existing links
+and special files, and retains no-follow directory handles during creation,
+replacement and cleanup. POSIX parents must be owned by the current user and not
+writable by others; unsafe non-sticky ancestors are rejected. Windows locks all
+directory ancestors against replacement and rejects reparse points. Elevated
+runs require a private output parent with a trusted owner/DACL. Do not use a
+shared, attacker-writable output directory as a trusted long-term result store.
+
+Distribution verification caps compressed archives at 8 MiB, expanded streams
+and aggregate members at 8 MiB, individual members at 1 MiB, and members at 256.
+Wheel central-directory metadata is bounded before allocation. Only stored and
+DEFLATE ZIP entries are accepted. TAR headers, including PAX metadata, pass
+through a bounded gzip reader. These limits intentionally exceed the reviewed
+small single-module packages and should be reconsidered with source growth.
+
+PyPI dispatch must use protected main. Verification code is taken from a verified
+protected-main commit and the same exact revision revalidates distributions in
+the OIDC publication job. Release tags are checked immediately before and after
+draft creation and again during publication. Update/deletion protection for v*
+tags is an external repository control required to close concurrent tag races;
+sequential checks alone do not lock GitHub state.

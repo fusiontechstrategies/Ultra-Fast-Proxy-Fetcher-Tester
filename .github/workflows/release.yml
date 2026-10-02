@@ -208,6 +208,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python -I scripts/verify_release_integrity.py tag "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$RELEASE_COMMIT"
           gh release create "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --draft \
@@ -222,14 +223,17 @@ jobs:
             "release-assets/Ultra-Fast-Proxy-Fetcher-Tester-v$RELEASE_VERSION.spdx.json" \
             "release-assets/SHA256SUMS.txt" \
             "release-assets/release-evidence.json"
+          python -I scripts/verify_release_integrity.py tag "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$RELEASE_COMMIT"
 
       - name: Verify exact draft state
         env:
+          RELEASE_COMMIT: ${{ needs.build.outputs.commit }}
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ needs.build.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
+          python -I scripts/verify_release_integrity.py tag "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "$RELEASE_COMMIT"
           gh release view "$GITHUB_REF_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --json isDraft,isPrerelease,assets > release-state.json

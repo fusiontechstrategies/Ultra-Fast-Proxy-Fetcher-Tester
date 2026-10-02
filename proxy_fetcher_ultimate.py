@@ -17,12 +17,13 @@ import json
 import os
 import re
 import socket
+import stat
 import sys
 import tempfile
 import time
 from collections import Counter
-from collections.abc import Callable, Sequence
-from contextlib import suppress
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -47,6 +48,7 @@ MAX_FETCH_CONCURRENCY = 32
 MAX_CANDIDATES = 50_000
 MAX_SOURCE_BYTES = 5 * 1024 * 1024
 MAX_ENDPOINTS_PER_SOURCE = 10_000
+MAX_VALIDATIONS_PER_SOURCE = 20_000
 MAX_REDIRECTS = 3
 USER_AGENT = f"Ultra-Fast-Proxy-Fetcher-Tester/{VERSION} (+{REPOSITORY_URL})"
 
@@ -452,28 +454,66 @@ def is_public_ipv4(host: str) -> bool:
     return address.version == 4 and is_global_unicast(address)
 
 
+def validated_proxy_candidates(
+    text: str,
+    protocol: ProxyProtocol,
+    address_validator: Callable[[str], bool],
+    max_validations: int,
+) -> Iterator[ProxyTarget | None]:
+    """Count every candidate, including duplicates and rejected addresses."""
+    if len(text) > MAX_SOURCE_BYTES or not 1 <= max_validations <= MAX_VALIDATIONS_PER_SOURCE:
+        raise SourceTooLargeError("source parser budget invalid or exceeded")
+    for count, match in enumerate(PROXY_PATTERN.finditer(text), 1):
+        if count > max_validations:
+            raise SourceTooLargeError("source parser validation budget exceeded")
+        host, port = match.group("host"), int(match.group("port"))
+        yield (
+            ProxyTarget(host, port, protocol)
+            if 1 <= port <= 65_535 and address_validator(host)
+            else None
+        )
+
+
 def parse_proxy_text(
     text: str,
     protocol: ProxyProtocol,
     *,
     address_validator: Callable[[str], bool] = is_public_ipv4,
     max_targets: int = MAX_ENDPOINTS_PER_SOURCE,
+    max_validations: int = MAX_VALIDATIONS_PER_SOURCE,
 ) -> tuple[tuple[ProxyTarget, ...], int]:
-    """Extract, validate, and deduplicate proxy endpoints from source text."""
-
-    if max_targets < 1:
-        raise ValueError("max_targets must be positive")
+    """Bound all candidate work while validating and deduplicating endpoints."""
+    if not 1 <= max_targets <= MAX_ENDPOINTS_PER_SOURCE:
+        raise ValueError("max_targets exceeds the source budget")
     targets: dict[ProxyTarget, None] = {}
     rejected = 0
-    for match in PROXY_PATTERN.finditer(text):
-        host = match.group("host")
-        port = int(match.group("port"))
-        if not 1 <= port <= 65_535 or not address_validator(host):
+    for target in validated_proxy_candidates(text, protocol, address_validator, max_validations):
+        if target is None:
             rejected += 1
-            continue
-        targets.setdefault(ProxyTarget(host, port, protocol), None)
-        if len(targets) >= max_targets:
-            break
+        else:
+            targets.setdefault(target, None)
+            if len(targets) >= max_targets:
+                break
+    return tuple(targets), rejected
+
+
+async def parse_proxy_text_async(
+    text: str, protocol: ProxyProtocol
+) -> tuple[tuple[ProxyTarget, ...], int]:
+    """Yield to the caller's source deadline even for dense duplicate bodies."""
+    targets: dict[ProxyTarget, None] = {}
+    rejected = 0
+    for count, target in enumerate(
+        validated_proxy_candidates(text, protocol, is_public_ipv4, MAX_VALIDATIONS_PER_SOURCE), 1
+    ):
+        if count % 64 == 0:
+            await asyncio.sleep(0)
+        if target is None:
+            rejected += 1
+        else:
+            targets.setdefault(target, None)
+            if len(targets) >= MAX_ENDPOINTS_PER_SOURCE:
+                break
     return tuple(targets), rejected
 
 
@@ -579,7 +619,7 @@ async def _fetch_source(session: aiohttp.ClientSession, source: SourceSpec) -> S
                     return SourceFetchResult(source, error=f"HTTP {response.status}")
                 payload = await read_limited_response(response)
                 text = payload.decode("utf-8", errors="replace")
-                targets, rejected = parse_proxy_text(text, source.protocol)
+                targets, rejected = await parse_proxy_text_async(text, source.protocol)
                 if not targets:
                     return SourceFetchResult(
                         source,
@@ -886,36 +926,159 @@ def format_results(results: Sequence[ProxyCheckResult]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def save_working_proxies(
-    results: Sequence[ProxyCheckResult],
-    output_file: str | Path,
-) -> int:
-    """Atomically replace the output, including when no proxies are working."""
+@contextmanager
+def windows_output_directory_lock(path: Path) -> Iterator[None]:
+    """Pin a regular directory without following or sharing deletion of reparse points."""
+    is_windows = sys.platform == "win32"
+    if not is_windows:
+        raise OSError("Windows directory handles unavailable")
+    import ctypes.wintypes
 
-    destination = Path(output_file).expanduser().resolve()
-    if destination.exists() and destination.is_dir():
-        raise IsADirectoryError(f"output path is a directory: {destination}")
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    content = format_results(results)
-    temporary_path: Path | None = None
+    wintypes = ctypes.wintypes
+    win_dll = getattr(ctypes, "WinDLL", None)
+    win_error = getattr(ctypes, "WinError", None)
+    last_error = getattr(ctypes, "get_last_error", None)
+    if not callable(win_dll) or not callable(win_error) or not callable(last_error):
+        raise OSError("Windows directory handles unavailable")
+    kernel = win_dll("kernel32", use_last_error=True)
+    kernel.CreateFileW.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    ]
+    kernel.CreateFileW.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.restype = wintypes.BOOL
+    kernel.GetFileInformationByHandleEx.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_int,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+    ]
+    kernel.GetFileInformationByHandleEx.restype = wintypes.BOOL
+    handle = kernel.CreateFileW(str(path), 0x81, 3, None, 3, 0x02200000, None)
+    if handle == ctypes.c_void_p(-1).value:
+        raise win_error(last_error())
     try:
-        with tempfile.NamedTemporaryFile(
-            "w",
-            encoding="utf-8",
-            newline="\n",
-            dir=destination.parent,
-            prefix=f".{destination.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as handle:
-            handle.write(content)
-            handle.flush()
-            os.fsync(handle.fileno())
-            temporary_path = Path(handle.name)
-        os.replace(temporary_path, destination)
+        attributes = (wintypes.DWORD * 2)()
+        if not kernel.GetFileInformationByHandleEx(
+            handle, 9, ctypes.byref(attributes), ctypes.sizeof(attributes)
+        ):
+            raise win_error(last_error())
+        if not attributes[0] & 0x10 or attributes[0] & 0x400:
+            raise PermissionError("Output parent must be a regular non-reparse directory")
+        yield
     finally:
-        if temporary_path is not None and temporary_path.exists():
-            temporary_path.unlink()
+        kernel.CloseHandle(handle)
+
+
+@contextmanager
+def pinned_output_parent(parent: Path) -> Iterator[int | None]:
+    """Walk components without links, retaining a stable publication directory."""
+    if sys.platform == "darwin" and len(parent.parts) > 1 and parent.parts[1] in {"var", "tmp"}:
+        alias = Path("/") / parent.parts[1]
+        target = Path("/private") / parent.parts[1]
+        if alias.is_symlink() and alias.lstat().st_uid == 0 and alias.resolve() == target:
+            parent = target.joinpath(*parent.parts[2:])
+    is_windows = sys.platform == "win32"
+    if is_windows:
+        with ExitStack() as locks:
+            current = Path(parent.anchor)
+            locks.enter_context(windows_output_directory_lock(current))
+            for part in parent.parts[1:]:
+                current /= part
+                current.mkdir(exist_ok=True)
+                locks.enter_context(windows_output_directory_lock(current))
+            yield None
+        return
+    nofollow, directory = getattr(os, "O_NOFOLLOW", 0), getattr(os, "O_DIRECTORY", 0)
+    if not nofollow or not directory:
+        raise OSError("No-follow directory handles are unavailable")
+    flags = os.O_RDONLY | directory | nofollow
+    get_uid = getattr(os, "geteuid", None)
+    if get_uid is None:
+        raise OSError("POSIX ownership validation unavailable")
+    uid = get_uid()
+    fd = os.open(parent.anchor, flags)
+    try:
+        for part in parent.parts[1:]:
+            ancestor = os.fstat(fd)
+            if ancestor.st_uid not in {0, uid} or (
+                stat.S_IMODE(ancestor.st_mode) & 0o022 and not ancestor.st_mode & stat.S_ISVTX
+            ):
+                raise PermissionError("Output ancestor can be replaced by another user")
+            with suppress(FileExistsError):
+                os.mkdir(part, 0o700, dir_fd=fd)
+            child = os.open(part, flags, dir_fd=fd)
+            os.close(fd)
+            fd = child
+        info = os.fstat(fd)
+        if info.st_uid != uid or stat.S_IMODE(info.st_mode) & 0o022:
+            raise PermissionError(
+                "Output parent must be owned by this user and not writable by others"
+            )
+        yield fd
+    finally:
+        os.close(fd)
+
+
+def save_working_proxies(results: Sequence[ProxyCheckResult], output_file: str | Path) -> int:
+    """Replace the lexical entry using a pinned parent, never its symlink target."""
+    destination = Path(os.path.abspath(Path(output_file).expanduser()))
+    content = format_results(results)
+    with pinned_output_parent(destination.parent) as directory_fd:
+        if directory_fd is None:
+            existing = destination.lstat() if os.path.lexists(destination) else None
+        else:
+            try:
+                existing = os.stat(destination.name, dir_fd=directory_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                existing = None
+        if existing is not None and not stat.S_ISREG(existing.st_mode):
+            raise PermissionError(
+                "Output destination must be a regular file, never a link or directory"
+            )
+        if directory_fd is None:
+            temporary_path: Path | None = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    "w",
+                    encoding="utf-8",
+                    newline="\n",
+                    dir=destination.parent,
+                    prefix=".proxy-output-",
+                    suffix=".tmp",
+                    delete=False,
+                ) as handle:
+                    temporary_path = Path(handle.name)
+                    handle.write(content)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.replace(temporary_path, destination)
+            finally:
+                if temporary_path is not None:
+                    temporary_path.unlink(missing_ok=True)
+        else:
+            name = ".proxy-output-" + os.urandom(16).hex()
+            fd = os.open(
+                name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+                0o600,
+                dir_fd=directory_fd,
+            )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+                    handle.write(content)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.replace(name, destination.name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd)
+            finally:
+                with suppress(FileNotFoundError):
+                    os.unlink(name, dir_fd=directory_fd)
     return sum(result.alive for result in results)
 
 
