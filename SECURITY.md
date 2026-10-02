@@ -43,3 +43,11 @@ bypass remaining part of the trusted operator boundary. Publication also runs
 protected-main verification code rather than code from the selected release tag. Both the
 publication copy and its immutable transfer are checked against the original
 attested wheel and source archive hashes immediately before publishing.
+
+Protected promotion first bounds and validates reviewed distribution contents,
+then rebuilds the wheel and source archive with trusted sibling normalizers.
+The original producer bytes must match the canonical ZIP, TAR and gzip bytes
+for the authenticated source epoch. Recomputed producer hashes cannot authorize
+alternate container metadata. Dependency metadata is compared to the complete
+reviewed requirement strings, and source members are an exact allowlist, so
+marker tautologies and extra Windows short-name aliases are rejected.
