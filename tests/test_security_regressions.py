@@ -8,6 +8,7 @@ import csv
 import hashlib
 import io
 import shutil
+import sys
 import tarfile
 import tempfile
 import unittest
@@ -25,24 +26,32 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class SourceDeadlineTests(unittest.IsolatedAsyncioTestCase):
     async def test_timed_out_dns_child_is_killed_and_reaped(self):
-        original = asyncio.create_subprocess_exec
         children = []
+        # Start the real child before the deadline so slow Windows process
+        # creation cannot consume the timeout this test reserves for cleanup.
+        process = await asyncio.create_subprocess_exec(
+            sys.executable, "-I", "-c", "import time; time.sleep(30)"
+        )
 
         async def controlled_child(*args, **kwargs):
-            process = await original(args[0], "-I", "-c", "import time; time.sleep(30)", **kwargs)
             children.append(process)
             return process
 
-        with patch.object(asyncio, "create_subprocess_exec", side_effect=controlled_child):
-            result = await app.fetch_source(
-                object(),
-                app.SourceSpec("https://public.example.invalid/list", "http"),
-                asyncio.Semaphore(1),
-                timeout_seconds=0.2,
-            )
-        self.assertEqual(result.error, "timeout")
-        self.assertEqual(len(children), 1)
-        self.assertIsNotNone(children[0].returncode)
+        try:
+            with patch.object(asyncio, "create_subprocess_exec", side_effect=controlled_child):
+                result = await app.fetch_source(
+                    object(),
+                    app.SourceSpec("https://public.example.invalid/list", "http"),
+                    asyncio.Semaphore(1),
+                    timeout_seconds=0.2,
+                )
+            self.assertEqual(result.error, "timeout")
+            self.assertEqual(len(children), 1)
+            self.assertIsNotNone(children[0].returncode)
+        finally:
+            if process.returncode is None:
+                process.kill()
+                await process.wait()
 
     async def test_slow_preflight_dns_is_inside_source_deadline(self):
         source = app.SourceSpec("https://public.example.invalid/list.txt", "http")
@@ -91,7 +100,7 @@ class DistributionSecurityTests(unittest.TestCase):
         version = "2.0.1"
         wheel = directory / f"ultra_fast_proxy_fetcher_tester-{version}-py3-none-any.whl"
         sdist = directory / f"ultra_fast_proxy_fetcher_tester-{version}.tar.gz"
-        metadata = f"Metadata-Version: 2.4\nName: ultra-fast-proxy-fetcher-tester\nVersion: {version}\nRequires-Dist: aiohttp==3.14.3\nRequires-Dist: aiohttp-socks==0.12.0\nRequires-Python: <3.15,>=3.10\nDescription-Content-Type: text/markdown\nLicense-Expression: MIT\nLicense-File: LICENSE\n"
+        metadata = f"Metadata-Version: 2.4\nName: ultra-fast-proxy-fetcher-tester\nVersion: {version}\nRequires-Dist: aiohttp==3.14.4\nRequires-Dist: aiohttp-socks==0.12.0\nRequires-Python: <3.15,>=3.10\nDescription-Content-Type: text/markdown\nLicense-Expression: MIT\nLicense-File: LICENSE\n"
         project = verify_distribution.reviewed_project(ROOT)["project"]
         metadata += f"Summary: {project['description']}\nAuthor: {project['authors'][0]['name']}\n"
         metadata += "".join(

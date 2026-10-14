@@ -134,8 +134,8 @@ class CanonicalHandoff(unittest.TestCase):
             with zipfile.ZipFile(wheel) as archive:
                 name = next(name for name in archive.namelist() if name.endswith("/METADATA"))
                 value = archive.read(name).replace(
-                    b"Requires-Dist: aiohttp==3.14.3",
-                    b'Requires-Dist: aiohttp==3.14.3; extra == "aws" or extra != "aws"',
+                    b"Requires-Dist: aiohttp==3.14.4",
+                    b'Requires-Dist: aiohttp==3.14.4; extra == "aws" or extra != "aws"',
                 )
             rewrite_wheel(wheel, {name: value})
             with self.assertRaisesRegex(ValueError, "dependencies"):
