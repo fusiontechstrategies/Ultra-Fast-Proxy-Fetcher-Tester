@@ -141,8 +141,7 @@ class CanonicalHandoff(unittest.TestCase):
                 value = archive.read(name).replace(
                     f"Requires-Dist: {aiohttp_requirement}".encode(),
                     (
-                        f'Requires-Dist: {aiohttp_requirement}; '
-                        'extra == "aws" or extra != "aws"'
+                        f'Requires-Dist: {aiohttp_requirement}; extra == "aws" or extra != "aws"'
                     ).encode(),
                 )
             rewrite_wheel(wheel, {name: value})
