@@ -100,7 +100,21 @@ class DistributionSecurityTests(unittest.TestCase):
         version = "2.0.1"
         wheel = directory / f"ultra_fast_proxy_fetcher_tester-{version}-py3-none-any.whl"
         sdist = directory / f"ultra_fast_proxy_fetcher_tester-{version}.tar.gz"
-        metadata = f"Metadata-Version: 2.4\nName: ultra-fast-proxy-fetcher-tester\nVersion: {version}\nRequires-Dist: aiohttp==3.14.4\nRequires-Dist: aiohttp-socks==0.12.0\nRequires-Python: <3.15,>=3.10\nDescription-Content-Type: text/markdown\nLicense-Expression: MIT\nLicense-File: LICENSE\n"
+        requirements = [
+            line.strip()
+            for line in (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        metadata = (
+            f"Metadata-Version: 2.4\n"
+            f"Name: ultra-fast-proxy-fetcher-tester\n"
+            f"Version: {version}\n"
+            + "".join(f"Requires-Dist: {requirement}\n" for requirement in requirements)
+            + "Requires-Python: <3.15,>=3.10\n"
+            + "Description-Content-Type: text/markdown\n"
+            + "License-Expression: MIT\n"
+            + "License-File: LICENSE\n"
+        )
         project = verify_distribution.reviewed_project(ROOT)["project"]
         metadata += f"Summary: {project['description']}\nAuthor: {project['authors'][0]['name']}\n"
         metadata += "".join(

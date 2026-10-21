@@ -131,11 +131,18 @@ class CanonicalHandoff(unittest.TestCase):
             root = Path(directory)
             wheel, _ = fixtures.DistributionSecurityTests().fixture_distributions(root)
             verify_distribution.verify_distribution(root, ROOT, VERSION)
+            aiohttp_requirement = next(
+                line
+                for line in (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines()
+                if line.startswith("aiohttp==")
+            )
             with zipfile.ZipFile(wheel) as archive:
                 name = next(name for name in archive.namelist() if name.endswith("/METADATA"))
                 value = archive.read(name).replace(
-                    b"Requires-Dist: aiohttp==3.14.4",
-                    b'Requires-Dist: aiohttp==3.14.4; extra == "aws" or extra != "aws"',
+                    f"Requires-Dist: {aiohttp_requirement}".encode(),
+                    (
+                        f'Requires-Dist: {aiohttp_requirement}; extra == "aws" or extra != "aws"'
+                    ).encode(),
                 )
             rewrite_wheel(wheel, {name: value})
             with self.assertRaisesRegex(ValueError, "dependencies"):
