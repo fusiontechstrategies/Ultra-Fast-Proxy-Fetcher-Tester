@@ -5,7 +5,7 @@ Contributions that improve correctness, safety, portability, testing, or documen
 ## Development setup
 
 1. Fork the repository and create a focused branch.
-2. Create a Python 3.10 or newer virtual environment.
+2. Create a Python 3.12 or newer virtual environment.
 3. Install `requirements-dev.txt`.
 4. Make the smallest complete change.
 5. Add or update offline tests.

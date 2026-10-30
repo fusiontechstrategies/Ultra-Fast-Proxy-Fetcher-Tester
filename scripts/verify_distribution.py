@@ -174,12 +174,9 @@ def validate_record(values: dict[str, bytes], record: str) -> None:
 
 
 def reviewed_project(source_root: Path) -> dict:
-    # Release jobs run Python 3.12 in isolated mode. Python 3.10 test/build users
-    # install the pinned tomli compatibility parser, never tagged import paths.
-    try:
-        import tomllib
-    except ModuleNotFoundError:
-        import tomli as tomllib
+    # Supported Python versions provide the standard-library TOML parser.
+    import tomllib
+
     with (source_root / "pyproject.toml").open("rb") as stream:
         return tomllib.load(stream)
 
@@ -227,7 +224,7 @@ def validate_metadata(metadata, dependencies, source_root: Path, configuration: 
         raise ValueError("Package metadata contains unreviewed installation semantics")
     required = {
         "Metadata-Version": "2.4",
-        "Requires-Python": "<3.15,>=3.10",
+        "Requires-Python": "<3.15,>=3.12",
         "Description-Content-Type": "text/markdown",
         "License-Expression": "MIT",
         "License-File": "LICENSE",

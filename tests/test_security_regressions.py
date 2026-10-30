@@ -110,7 +110,7 @@ class DistributionSecurityTests(unittest.TestCase):
             f"Name: ultra-fast-proxy-fetcher-tester\n"
             f"Version: {version}\n"
             + "".join(f"Requires-Dist: {requirement}\n" for requirement in requirements)
-            + "Requires-Python: <3.15,>=3.10\n"
+            + "Requires-Python: <3.15,>=3.12\n"
             + "Description-Content-Type: text/markdown\n"
             + "License-Expression: MIT\n"
             + "License-File: LICENSE\n"
