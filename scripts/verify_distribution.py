@@ -224,7 +224,7 @@ def validate_metadata(metadata, dependencies, source_root: Path, configuration: 
         raise ValueError("Package metadata contains unreviewed installation semantics")
     required = {
         "Metadata-Version": "2.4",
-        "Requires-Python": "<3.15,>=3.11",
+        "Requires-Python": "<3.15,>=3.12",
         "Description-Content-Type": "text/markdown",
         "License-Expression": "MIT",
         "License-File": "LICENSE",
