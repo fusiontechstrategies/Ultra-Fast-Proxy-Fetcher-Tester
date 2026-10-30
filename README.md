@@ -1,7 +1,7 @@
 # Ultra-Fast Proxy Fetcher & Tester
 
 [![CI](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/actions/workflows/ci.yml/badge.svg)](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/actions/workflows/ci.yml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](https://www.python.org/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Fetch, validate, rank, and save public HTTP, SOCKS4, and SOCKS5 proxy endpoints with one Python script. The engine uses bounded asynchronous concurrency, strict public-address filtering, and an end-to-end HTTPS connectivity check.
@@ -28,7 +28,7 @@ Version 2.0.1 is the current verified release. Download the [standalone runtime,
 
 ## Requirements
 
-- Python 3.10 or newer
+- Python 3.11 or newer
 - Internet access to the configured source hosts and HTTPS connectivity endpoint
 
 ## Installation
@@ -143,7 +143,7 @@ Generated proxy files are excluded by `.gitignore`. Treat them as transient oper
 
 ## Security model and limitations
 
-Address filtering uses a fixed conservative policy across Python 3.10 through
+Address filtering uses a fixed conservative policy across Python 3.11 through
 3.14. It rejects every special-purpose block in the
 [IANA IPv4 registry](https://www.iana.org/assignments/iana-ipv4-special-registry/)
 and [IANA IPv6 registry](https://www.iana.org/assignments/iana-ipv6-special-registry/)
@@ -170,8 +170,11 @@ classifiers, README content and wheel generator to reviewed source. Source
 archives reject unreviewed empty directories and nonportable paths. After
 environment approval, PyPI promotion rechecks the original tag and signed
 commit, main ancestry, and the same public stable release before publication.
-Python 3.10 development checks install a pinned `tomli` compatibility parser;
-release jobs use Python 3.12's standard-library TOML parser in isolated mode.
+Python 3.10 reached end of life on October 1, 2026; repository source and future
+releases require Python 3.11 through 3.14. The already-published v2.0.1 metadata
+cannot be changed in place and still records its historical Python 3.10
+compatibility. Release jobs use Python 3.12's standard-library TOML parser in
+isolated mode.
 
 The `v2.0.1` release process is designed to contain exactly seven files:
 

@@ -25,7 +25,7 @@ from collections import Counter
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urljoin, urlparse
@@ -600,7 +600,7 @@ async def fetch_source(
     async with semaphore:
         try:
             return await asyncio.wait_for(_fetch_source(session, source), timeout=timeout_seconds)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return SourceFetchResult(source, error="timeout")
 
 
@@ -641,7 +641,7 @@ async def _fetch_source(session: aiohttp.ClientSession, source: SourceSpec) -> S
                     rejected,
                     len(payload),
                 )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return SourceFetchResult(source, error="timeout")
     except UnsafeSourceError:
         return SourceFetchResult(source, error="unsafe destination blocked")
@@ -835,7 +835,7 @@ class FastProxyChecker:
             if target.protocol == "http":
                 return await self._check_http_proxy(http_session, target)
             return await self._check_socks_proxy(target)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return ProxyCheckResult(target, False, 0.0, "timeout")
         except (aiohttp.ClientConnectorCertificateError, aiohttp.ClientSSLError):
             return ProxyCheckResult(target, False, 0.0, "TLS failure")
@@ -913,7 +913,7 @@ def format_results(results: Sequence[ProxyCheckResult]) -> str:
     lines = [
         "# " + "=" * 76,
         "# WORKING PUBLIC PROXIES",
-        f"# Generated: {datetime.now(timezone.utc).isoformat(timespec='seconds')}",
+        f"# Generated: {datetime.now(UTC).isoformat(timespec='seconds')}",
         f"# Total working proxies: {len(working)}",
         "# Format: protocol://IP:PORT  # response_time",
         "# WARNING: Public proxies are untrusted. Never send credentials or sensitive data.",
