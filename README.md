@@ -1,5 +1,9 @@
 # Ultra-Fast Proxy Fetcher & Tester
 
+<p align="center">
+  <img src=".github/assets/social-preview.jpg" width="960" alt="Proxy Feed Tester: Validate. Bound. Rank.">
+</p>
+
 [![CI](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/actions/workflows/ci.yml/badge.svg)](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/actions/workflows/ci.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-3776AB.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
