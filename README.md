@@ -10,6 +10,8 @@ Fetch, validate, rank, and save public HTTP, SOCKS4, and SOCKS5 proxy endpoints 
 
 This project is intended for authorized network testing, software development, and research. Public proxies are untrusted. Never send credentials, personal information, proprietary data, or other sensitive traffic through an endpoint produced by this tool.
 
+> **Project status: maintained network-diagnostics utility.** Version 2.0.1 is the current verified release. "Ultra-Fast" is the project name, not a fixed throughput promise: results depend on the reviewed source set, network path, protocol, concurrency, timeout, and candidate quality. A successful check establishes bounded reachability and measured latency to the configured test endpoint, not anonymity, safety, ownership, or suitability for sensitive traffic.
+
 Version 2.0.1 is the current verified release. Download the [standalone runtime, Python distributions, and integrity files](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/releases/tag/v2.0.1) from the release page.
 
 ## Why this version is different
@@ -184,6 +186,11 @@ The `v2.0.1` release process is designed to contain exactly seven files:
 The builder uses a fixed file allowlist, canonical ZIP order, timestamps, permissions, and metadata. It rejects mismatched versions, tags, dependencies, source files, commits, or output sets. GitHub Actions builds the assets twice, compares every byte, exercises the exact standalone runtime without network access, and attests every asset before creating a draft. The workflow cannot publish the draft and does not publish to a package registry.
 
 See [RELEASING.md](RELEASING.md) for the exact contract and [TESTING.md](TESTING.md) for offline, live, and release validation boundaries.
+
+## Related Fusion projects
+
+- [IDS Rule Converter](https://github.com/fusiontechstrategies/IDS-Rule-Converter) is a separate, fail-safe network detection engineering utility.
+- Explore the complete [Fusion Technology Strategies public portfolio](https://github.com/fusiontechstrategies/FusionTechStrategies).
 
 ## Development
 
