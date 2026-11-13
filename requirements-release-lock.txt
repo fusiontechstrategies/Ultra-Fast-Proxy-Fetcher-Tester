@@ -1061,9 +1061,9 @@ pyproject-hooks==1.3.3 \
     --hash=sha256:5fc53fdac9f7bd63fbcdc868fb5f90b4784d78a53a3d3388cd738b807441a20b \
     --hash=sha256:defda19b854fa0d3bd4f76ea4ddcba8abd7dcfcdd585a6690ade050744fc5f43
     # via build
-python-socks==3.2.0 \
-    --hash=sha256:4cb349f43043eeeb12d10919cb992a7ce8671c2c5a836a47cb0c29d8def11d24 \
-    --hash=sha256:b1a0e372f33182f657d935c3171fa03623b6a65734323746d0de9f296bc537ea
+python-socks==3.2.1 \
+    --hash=sha256:d21618ae6c6734d357be83263b3791666d12af59480ace8f48f2b5fcc8edc987 \
+    --hash=sha256:db2c37d4f7aeebfbba91d2d7670718b2d516061b34296fa8498c6f671e87c504
     # via aiohttp-socks
 pywin32-ctypes==0.2.3 ; platform_machine != 'ppc64le' and platform_machine != 's390x' and sys_platform == 'win32' \
     --hash=sha256:8a1513379d709975552d202d942d9837758905c8d01eb82b8bcc30918929e7b8 \
