@@ -23,7 +23,7 @@ from scripts import (
 )
 
 ROOT = fixtures.ROOT
-VERSION, COMMIT, EPOCH = "2.0.1", "a" * 40, 1767225600
+VERSION, COMMIT, EPOCH = "2.0.2", "a" * 40, 1767225600
 
 
 class CanonicalHandoff(unittest.TestCase):

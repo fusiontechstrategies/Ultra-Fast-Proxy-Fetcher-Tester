@@ -43,11 +43,11 @@ $env:SOURCE_DATE_EPOCH = $candidateEpoch
 python -m build --no-isolation --wheel --sdist --outdir package-dist
 python scripts\normalize_wheel.py --source-date-epoch $candidateEpoch (Get-ChildItem package-dist\*.whl).FullName
 python scripts\normalize_sdist.py --source-date-epoch $candidateEpoch (Get-ChildItem package-dist\*.tar.gz).FullName
-python scripts\verify_distribution.py package-dist --version 2.0.1
+python scripts\verify_distribution.py package-dist --version 2.0.2
 
 python scripts\prepare_release.py `
-  --version 2.0.1 `
-  --tag v2.0.1 `
+  --version 2.0.2 `
+  --tag v2.0.2 `
   --source-commit $candidateCommit `
   --source-date-epoch $candidateEpoch `
   --dist-dir package-dist `

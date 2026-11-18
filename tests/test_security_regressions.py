@@ -97,7 +97,7 @@ class SourceDeadlineTests(unittest.IsolatedAsyncioTestCase):
 
 class DistributionSecurityTests(unittest.TestCase):
     def fixture_distributions(self, directory):
-        version = "2.0.1"
+        version = "2.0.2"
         wheel = directory / f"ultra_fast_proxy_fetcher_tester-{version}-py3-none-any.whl"
         sdist = directory / f"ultra_fast_proxy_fetcher_tester-{version}.tar.gz"
         requirements = [
@@ -185,11 +185,11 @@ class DistributionSecurityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             wheel, _ = self.fixture_distributions(root)
-            verify_distribution.verify_distribution(root, ROOT, "2.0.1")
+            verify_distribution.verify_distribution(root, ROOT, "2.0.2")
             with zipfile.ZipFile(wheel, "a") as archive:
                 archive.writestr("startup.pth", "import synthetic")
             with self.assertRaisesRegex(ValueError, "unreviewed installation members"):
-                verify_distribution.verify_distribution(root, ROOT, "2.0.1")
+                verify_distribution.verify_distribution(root, ROOT, "2.0.2")
 
     def test_added_installation_active_sdist_member_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -200,9 +200,9 @@ class DistributionSecurityTests(unittest.TestCase):
             with tarfile.open(sdist, "w:gz") as archive:
                 for member, data in members:
                     archive.addfile(member, io.BytesIO(data))
-                archive.addfile(tarfile.TarInfo("ultra_fast_proxy_fetcher_tester-2.0.1/setup.py"))
+                archive.addfile(tarfile.TarInfo("ultra_fast_proxy_fetcher_tester-2.0.2/setup.py"))
             with self.assertRaisesRegex(ValueError, "unreviewed installation members"):
-                verify_distribution.verify_distribution(root, ROOT, "2.0.1")
+                verify_distribution.verify_distribution(root, ROOT, "2.0.2")
 
     def test_publication_copy_mutation_cannot_hide_behind_original_attestation(self):
         with tempfile.TemporaryDirectory() as directory:

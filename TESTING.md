@@ -4,7 +4,7 @@ The project separates offline correctness checks, bounded live validation, and r
 
 ## Offline validation
 
-Use Python 3.12 or newer in a clean virtual environment:
+Use Python 3.12 through 3.14 in a clean virtual environment:
 
 ```bash
 python -m pip install -r requirements-dev.txt
