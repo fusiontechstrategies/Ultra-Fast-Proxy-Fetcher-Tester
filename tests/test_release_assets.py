@@ -15,7 +15,7 @@ from pathlib import Path
 from scripts import prepare_release, verify_release_handoff
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-VERSION = "2.0.1"
+VERSION = "2.0.2"
 TAG = f"v{VERSION}"
 SOURCE_COMMIT = "a" * 40
 SOURCE_DATE_EPOCH = 315532800
@@ -98,7 +98,7 @@ class ReleaseAssetTests(unittest.TestCase):
                 relative_names = {member.filename.split("/", maxsplit=1)[1] for member in members}
                 self.assertTrue(
                     {
-                        ".github/release-notes/v2.0.1.md",
+                        ".github/release-notes/v2.0.2.md",
                         ".github/workflows/release.yml",
                     }.issubset(relative_names)
                 )
@@ -181,7 +181,7 @@ class ReleaseAssetTests(unittest.TestCase):
                     PROJECT_ROOT,
                     self.DIST_DIR,
                     root / "bad-version",
-                    "2.0.2",
+                    "0.0.0",
                     TAG,
                     SOURCE_COMMIT,
                     SOURCE_DATE_EPOCH,

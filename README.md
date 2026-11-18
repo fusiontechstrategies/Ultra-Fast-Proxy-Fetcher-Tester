@@ -1,22 +1,22 @@
 # Ultra-Fast Proxy Fetcher & Tester
 
 <p align="center">
-  <img src=".github/assets/social-preview.jpg" width="960" alt="Proxy Feed Tester: Validate. Bound. Rank.">
+  <img src="https://raw.githubusercontent.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/refs/heads/main/.github/assets/social-preview.jpg" width="960" alt="Proxy Feed Tester: Validate. Bound. Rank.">
 </p>
 
 [![CI](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/actions/workflows/ci.yml/badge.svg)](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/actions/workflows/ci.yml)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-3776AB.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python 3.12–3.14](https://img.shields.io/badge/python-3.12--3.14-3776AB.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/blob/main/LICENSE)
 
 Fetch, validate, rank, and save public HTTP, SOCKS4, and SOCKS5 proxy endpoints with one Python script. The engine uses bounded asynchronous concurrency, strict public-address filtering, and an end-to-end HTTPS connectivity check.
 
-[![Bounded proxy validation pipeline](docs/images/proxy-validation-pipeline.png)](docs/images/source/proxy-validation-pipeline.svg)
+[![Bounded proxy validation pipeline](https://raw.githubusercontent.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/refs/heads/main/docs/images/proxy-validation-pipeline.png)](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/blob/main/docs/images/source/proxy-validation-pipeline.svg)
 
 This project is intended for authorized network testing, software development, and research. Public proxies are untrusted. Never send credentials, personal information, proprietary data, or other sensitive traffic through an endpoint produced by this tool.
 
-> **Project status: maintained network-diagnostics utility.** Version 2.0.1 is the current verified release. "Ultra-Fast" is the project name, not a fixed throughput promise: results depend on the reviewed source set, network path, protocol, concurrency, timeout, and candidate quality. A successful check establishes bounded reachability and measured latency to the configured test endpoint, not anonymity, safety, ownership, or suitability for sensitive traffic.
+Version 2.0.2 is the current release version of this source tree. A successful check establishes bounded reachability and measured latency to the configured test endpoint. Public proxies are untrusted and should never carry sensitive traffic.
 
-Version 2.0.1 is the current verified release. Download the [standalone runtime, Python distributions, and integrity files](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/releases/tag/v2.0.1) from the release page.
+Find the [standalone runtime, Python distributions, and integrity files](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/releases) under published releases.
 
 ## Why this version is different
 
@@ -28,21 +28,23 @@ Version 2.0.1 is the current verified release. Download the [standalone runtime,
 - Caps every source at 5 MiB and 10,000 unique endpoints to constrain hostile or malformed feeds.
 - Does not display third-party proxy addresses in live progress output.
 - Atomically invalidates stale output before testing and replaces it with the completed report, including when no proxies work.
-- Keeps all application logic in [`proxy_fetcher_ultimate.py`](proxy_fetcher_ultimate.py).
+- Keeps all application logic in [`proxy_fetcher_ultimate.py`](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/blob/main/proxy_fetcher_ultimate.py).
 
 ## Requirements
 
-- Python 3.12 or newer
+- Python 3.12 through 3.14
 - Internet access to the configured source hosts and HTTPS connectivity endpoint
 
 ## Installation
 
-Install the [PyPI 2.0.1 package](https://pypi.org/project/ultra-fast-proxy-fetcher-tester/2.0.1/) for the `proxy-fetcher-tester` command:
+Install the [published package](https://pypi.org/project/ultra-fast-proxy-fetcher-tester/) for the `proxy-fetcher-tester` command:
 
 ```bash
-python -m pip install ultra-fast-proxy-fetcher-tester==2.0.1
+python -m pip install ultra-fast-proxy-fetcher-tester
 proxy-fetcher-tester --help
 ```
+
+For an exact install, use `python -m pip install ultra-fast-proxy-fetcher-tester==2.0.2` once it appears in the [PyPI release history](https://pypi.org/project/ultra-fast-proxy-fetcher-tester/#history).
 
 To work from the standalone source, clone the repository:
 
@@ -165,7 +167,7 @@ trades some special-purpose reachability for a narrower public-proxy boundary.
 - The application ignores system proxy environment variables for source retrieval and test traffic.
 - Adding custom target URLs is intentionally unsupported to reduce misuse and accidental traffic against third parties.
 
-Read [SECURITY.md](SECURITY.md) for vulnerability reporting and [RESPONSIBLE_USE.md](RESPONSIBLE_USE.md) before operating the tool.
+Read [SECURITY.md](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/blob/main/SECURITY.md) for vulnerability reporting and [RESPONSIBLE_USE.md](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/blob/main/RESPONSIBLE_USE.md) before operating the tool.
 
 ## Release integrity
 
@@ -180,7 +182,7 @@ cannot be changed in place and still records its historical Python 3.10
 compatibility. Release jobs use Python 3.12's standard-library TOML parser in
 isolated mode.
 
-The `v2.0.1` release process is designed to contain exactly seven files:
+The release process is designed to produce exactly seven files:
 
 1. an exact standalone copy of `proxy_fetcher_ultimate.py`
 2. a deterministic source and documentation ZIP
@@ -192,7 +194,7 @@ The `v2.0.1` release process is designed to contain exactly seven files:
 
 The builder uses a fixed file allowlist, canonical ZIP order, timestamps, permissions, and metadata. It rejects mismatched versions, tags, dependencies, source files, commits, or output sets. GitHub Actions builds the assets twice, compares every byte, exercises the exact standalone runtime without network access, and attests every asset before creating a draft. The workflow cannot publish the draft and does not publish to a package registry.
 
-See [RELEASING.md](RELEASING.md) for the exact contract and [TESTING.md](TESTING.md) for offline, live, and release validation boundaries.
+See [RELEASING.md](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/blob/main/RELEASING.md) for the exact contract and [TESTING.md](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/blob/main/TESTING.md) for offline, live, and release validation boundaries.
 
 ## Related Fusion projects
 
@@ -220,11 +222,11 @@ python -m pip_audit -r requirements.txt
 python -m pip_audit -r requirements-dev.txt
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for source-review and pull-request requirements.
+See [CONTRIBUTING.md](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/blob/main/CONTRIBUTING.md) for source-review and pull-request requirements.
 
 ## License
 
-Released under the [MIT License](LICENSE).
+Released under the [MIT License](https://github.com/fusiontechstrategies/Ultra-Fast-Proxy-Fetcher-Tester/blob/main/LICENSE).
 
 ### Immutable publication prerequisite
 

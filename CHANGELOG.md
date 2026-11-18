@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## [2.0.2] - 2026-11-18
+
+- Aligned the package description and exact install pin with the packaged version.
+- Tightened feed decompression, address, archive, and output handling.
+- Restricted release promotion to reviewed distribution bytes and updated pinned dependencies.
+- Updated the supported Python range to 3.12 through 3.14.
+
 ## [2.0.1] - 2026-09-29
 
 ### Distribution
